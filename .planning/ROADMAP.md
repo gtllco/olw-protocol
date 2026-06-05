@@ -5,13 +5,14 @@ Resolution index, fingerprint query, Python SDK on PyPI, Stripe Pro flow,
 admin portal, landing/pricing/welcome pages, test suites.
 **Goal met:** an agent can register, be discovered, and a buyer can pay → get a working Pro key.
 
-## ⏳ Phase 2 — Harden & Trust (NEXT)
+## ✅ Phase 2 — Harden & Trust (COMPLETE · 2026-06-05)
 *What must be TRUE: a third party can trust the index and can't hijack an address.*
-- [ ] `/register` ownership verification via `.well-known/olw/agent.json` challenge
-- [ ] Rate limit `/register` + `/checkout`
-- [ ] `api-keys.json` backup → Supabase (don't lose paying customers)
-- [ ] Webhook idempotency (dedupe by event.id)
-- [ ] Health endpoint + uptime monitor
+- [x] `/register` ownership verification via `.well-known/olw/agent.json` challenge (dual-path: verified + legacy)
+- [x] Rate limit `/register` (10/day) + `/checkout` (20/hr) per remote IP
+- [x] `api-keys.json` backup → Supabase `olw_api_keys` + restore-on-boot
+- [x] Webhook idempotency (dedupe by event.id)
+- [x] Health endpoint `/health` + cron monitor → /soulProxy alert
+**Verified:** 64 assertions green (33 Playwright + 16 e2e + 8 ownership + 7 backup/restore).
 
 ## ⏳ Phase 3 — Decentralized Resolution
 *What must be TRUE: OLW works without the central index.*

@@ -3,7 +3,16 @@
 **Updated:** 2026-06-05
 
 ## Position
-Phase 1 (Layer 1 Launch) **COMPLETE**. Next up: Phase 2 (Harden & Trust).
+Phase 1 (Launch) + Phase 2 (Harden & Trust) **COMPLETE**. Next up: Phase 3 (Decentralized Resolution).
+
+## Phase 2 shipped (2026-06-05)
+- `/register` dual-path: `well_known_url` crawl + owner-domain binding (verified:true); legacy inline (verified:false). Owner label must appear as a dot-segment of the serving host.
+- Rate limits: register 10/day, checkout 20/hr per remote IP (loopback exempt). Free `/query` cap 10/day also exempts loopback.
+- Webhook idempotency via `processed_events[event.id]`.
+- Supabase backup: table `public.olw_api_keys` (self-hosted, service_role). Mirror on issue/revoke, restore-on-boot if local file empty. Secrets: SUPABASE_URL + SUPABASE_SERVICE_KEY in olw-secrets.env.
+- `/health` (public) + `/opt/olw/index-server/monitor.sh` cron (*/5) → /soulProxy on failure.
+- Test fixture: `/opt/777/.well-known/olw/test-mismatch.json` (used by register-ownership.mjs — do not delete).
+- Tests: register-ownership.mjs, e2e-payment.mjs (+idempotency), backup-restore.sh.
 
 ## Live infra
 - Service: `olw-index.service` (systemd, active), node v22.22.3, port 3778

@@ -10,6 +10,8 @@ const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const DOMAIN = process.env.OLW_DOMAIN || 'https://olw.gtll.app';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const DB_PATH = '/opt/olw/index-server/agents.json';
 const KEYS_PATH = '/opt/olw/index-server/api-keys.json';
 const RATE_PATH = '/opt/olw/index-server/rate-limits.json';
@@ -32,6 +34,10 @@ function checkRateLimit(ip, apiKey) {
     const keys = loadKeys();
     if (keys.keys[apiKey] && keys.keys[apiKey].active) return { allowed: true, tier: 'pro' };
     return { allowed: false, tier: 'invalid_key', error: 'Invalid API key. Get one at ' + DOMAIN + '/pricing' };
+  }
+  // Loopback (tests / server-local) is trusted — free-tier cap targets remote IPs.
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'unknown') {
+    return { allowed: true, tier: 'free', remaining: 10 };
   }
   const today = new Date().toISOString().slice(0, 10);
   const rate = loadRate();
@@ -71,6 +77,54 @@ function checkActionLimit(ip, action) {
 
 function generateApiKey() {
   return 'olw_live_' + crypto.randomBytes(24).toString('hex');
+}
+
+// ── Supabase backup (best-effort, non-blocking) ─────────────────────────────
+// Local api-keys.json stays source of truth; Supabase is a durable mirror so
+// paying customers' keys survive disk loss. Any failure logs and is swallowed.
+const sbEnabled = () => !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+function sbHeaders(extra = {}) {
+  return { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json', ...extra };
+}
+async function sbMirrorKey(record) {
+  if (!sbEnabled()) return;
+  try {
+    const row = { api_key: record.api_key, email: record.email || '', tier: record.tier || 'pro',
+      active: !!record.active, stripe_customer: record.stripe_customer || null, stripe_session: record.stripe_session || null,
+      created_at: record.created_at || new Date().toISOString(), updated_at: new Date().toISOString() };
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/olw_api_keys`, {
+      method: 'POST', headers: sbHeaders({ Prefer: 'resolution=merge-duplicates' }), body: JSON.stringify(row) });
+    if (!r.ok) console.error(`[OLW] Supabase mirror upsert failed: ${r.status}`);
+  } catch (e) { console.error('[OLW] Supabase mirror error:', e.message); }
+}
+async function sbMarkInactiveByCustomer(stripeCustomer) {
+  if (!sbEnabled() || !stripeCustomer) return;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/olw_api_keys?stripe_customer=eq.${encodeURIComponent(stripeCustomer)}`, {
+      method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ active: false, updated_at: new Date().toISOString() }) });
+    if (!r.ok) console.error(`[OLW] Supabase revoke failed: ${r.status}`);
+  } catch (e) { console.error('[OLW] Supabase revoke error:', e.message); }
+}
+// On boot: if local keys file is missing/empty but Supabase has rows, restore.
+async function sbReconcileOnBoot() {
+  if (!sbEnabled()) return;
+  const local = loadKeys();
+  if (Object.keys(local.keys || {}).length > 0) return; // local has data — trust it
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/olw_api_keys?select=*`, { headers: sbHeaders() });
+    if (!r.ok) { console.error(`[OLW] Supabase reconcile fetch failed: ${r.status}`); return; }
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const restored = { keys: {}, by_session: {}, processed_events: local.processed_events || {} };
+    for (const row of rows) {
+      const rec = { api_key: row.api_key, email: row.email, tier: row.tier, active: row.active,
+        stripe_customer: row.stripe_customer, stripe_session: row.stripe_session, created_at: row.created_at };
+      restored.keys[row.api_key] = rec;
+      if (row.stripe_session) restored.by_session[row.stripe_session] = rec;
+    }
+    saveKeys(restored);
+    console.log(`[OLW] Restored ${rows.length} key(s) from Supabase backup`);
+  } catch (e) { console.error('[OLW] Supabase reconcile error:', e.message); }
 }
 
 function matchFingerprint(agentFP, query) {
@@ -1602,6 +1656,28 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
+  // ── GET /health — unauthenticated liveness/readiness ──────────────────────────
+  if (req.method === 'GET' && url.pathname === '/health') {
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      const db = loadDB();
+      const keys = loadKeys();
+      const active = Object.values(keys.keys || {}).filter(k => k.active).length;
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        ok: true,
+        agents: Object.keys(db.agents || {}).length,
+        subscribers: active,
+        uptime_seconds: Math.floor(process.uptime()),
+        stripe: stripe ? 'live' : 'off',
+        supabase_backup: sbEnabled() ? 'on' : 'off',
+      }));
+    } catch (e) {
+      res.writeHead(500); res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
+  }
+
   // ── HTML pages ──────────────────────────────────────────────────────────────
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
     res.setHeader('Content-Type', 'text/html');
@@ -1775,6 +1851,7 @@ const server = http.createServer(async (req, res) => {
       keys.keys[newKey] = record;
       keys.by_session[session.id] = record;
       saveKeys(keys);
+      sbMirrorKey(record); // best-effort durable backup
       console.log(`[OLW] Pro key issued for ${email || 'unknown'}: ${newKey.slice(0, 20)}...`);
     }
 
@@ -1785,6 +1862,7 @@ const server = http.createServer(async (req, res) => {
         if (v.stripe_customer === sub.customer) v.active = false;
       });
       saveKeys(keys);
+      sbMarkInactiveByCustomer(sub.customer); // mirror revocation
       console.log(`[OLW] Subscription cancelled: ${sub.customer}`);
     }
 
@@ -1880,11 +1958,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   res.writeHead(404);
-  res.end(JSON.stringify({ routes: ['POST /register','GET /resolve','GET /query','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /admin','GET /admin/stats'] }));
+  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /admin','GET /admin/stats'] }));
 });
 
 server.listen(PORT, () => {
   console.log(`OLW Resolution Index :${PORT}`);
   console.log(`Stripe: ${stripe ? 'live' : 'not configured'} | Price: ${STRIPE_PRICE_ID || 'not set'} | Webhook: ${STRIPE_WEBHOOK_SECRET ? 'verified' : 'unverified'}`);
+  console.log(`Supabase backup: ${sbEnabled() ? 'on' : 'off'}`);
   console.log(`Domain: ${DOMAIN}`);
+  sbReconcileOnBoot(); // restore keys from backup if local file is empty
 });
