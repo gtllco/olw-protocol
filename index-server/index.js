@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import Stripe from 'stripe';
 import crypto from 'crypto';
+import { embed, capabilityText, pull } from './pull.js';
 
 const PORT = process.env.PORT || 3778;
 const STRIPE_KEY = process.env.STRIPE_SECRET_KEY || '';
@@ -20,9 +21,26 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const stripe = STRIPE_KEY ? new Stripe(STRIPE_KEY, { apiVersion: '2024-06-20' }) : null;
 
+// 555 live pull visualization — the mesh thinks out loud. Loaded once at boot.
+const MESH_PATH = '/opt/olw/index-server/mesh.html';
+const MESH_HTML = existsSync(MESH_PATH) ? readFileSync(MESH_PATH, 'utf8') : '<h1>mesh.html missing</h1>';
+
 // ── DB helpers ────────────────────────────────────────────────────────────────
 function loadDB() { return existsSync(DB_PATH) ? JSON.parse(readFileSync(DB_PATH, 'utf8')) : { agents: {} }; }
 function saveDB(db) { writeFileSync(DB_PATH, JSON.stringify(db, null, 2)); }
+
+// Strip the internal embedding vector from anything we return publicly — keeps
+// /resolve, /query, /agents response shapes identical to before the pull engine.
+function pub(a) { if (!a) return a; const { _vec, ...rest } = a; return rest; }
+
+// Embed an agent's capability into a vector (sovereign, local). Best-effort:
+// if ollama is down the agent still registers, it just won't surface in /pull
+// until reindexed — registration never fails because of the embedder.
+async function embedAgent(doc) {
+  try { doc._vec = await embed(capabilityText(doc)); }
+  catch (e) { console.error(`[pull] embed skipped for ${doc.address}: ${e.message}`); }
+  return doc;
+}
 function loadKeys() { return existsSync(KEYS_PATH) ? JSON.parse(readFileSync(KEYS_PATH, 'utf8')) : { keys: {}, by_session: {} }; }
 function saveKeys(k) { writeFileSync(KEYS_PATH, JSON.stringify(k, null, 2)); }
 function loadRate() { return existsSync(RATE_PATH) ? JSON.parse(readFileSync(RATE_PATH, 'utf8')) : { ips: {} }; }
@@ -1691,6 +1709,10 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.writeHead(200); res.end(WELCOME_HTML); return;
   }
+  if (req.method === 'GET' && url.pathname === '/mesh') {
+    res.setHeader('Content-Type', 'text/html');
+    res.writeHead(200); res.end(MESH_HTML); return;
+  }
 
   res.setHeader('Content-Type', 'application/json');
 
@@ -1719,12 +1741,14 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(403); res.end(JSON.stringify({ error: `ownership not proven: ${host} is not bound to owner "${ownerLabel}" of ${doc.address}` })); return;
       }
       const db = loadDB();
-      db.agents[doc.address] = {
+      const entry = {
         address: doc.address, name: doc.name, description: doc.description,
         endpoint: doc.endpoint, fingerprint: doc.fingerprint,
         verified: true, well_known_url: body.well_known_url,
         registered_at: new Date().toISOString(), verified_at: new Date().toISOString(), last_seen: new Date().toISOString(),
       };
+      await embedAgent(entry);
+      db.agents[doc.address] = entry;
       saveDB(db);
       res.writeHead(200);
       res.end(JSON.stringify({ registered: true, verified: true, address: doc.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(doc.address)}` }));
@@ -1736,7 +1760,9 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400); res.end(JSON.stringify({ error: 'address and fingerprint required (or pass well_known_url for verified registration)' })); return;
     }
     const db = loadDB();
-    db.agents[body.address] = { ...body, verified: false, registered_at: new Date().toISOString(), last_seen: new Date().toISOString() };
+    const entry = { ...body, verified: false, registered_at: new Date().toISOString(), last_seen: new Date().toISOString() };
+    await embedAgent(entry);
+    db.agents[body.address] = entry;
     saveDB(db);
     res.writeHead(200);
     res.end(JSON.stringify({ registered: true, verified: false, address: body.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(body.address)}` }));
@@ -1749,7 +1775,7 @@ const server = http.createServer(async (req, res) => {
     const db = loadDB();
     const agent = db.agents[address];
     if (!agent) { res.writeHead(404); res.end(JSON.stringify({ error: 'not found', address })); return; }
-    res.writeHead(200); res.end(JSON.stringify(agent)); return;
+    res.writeHead(200); res.end(JSON.stringify(pub(agent))); return;
   }
 
   // ── GET /query — rate limited ──────────────────────────────────────────────
@@ -1762,9 +1788,30 @@ const server = http.createServer(async (req, res) => {
     }
     const query = Object.fromEntries(url.searchParams.entries());
     const db = loadDB();
-    const matches = Object.values(db.agents).filter(a => matchFingerprint(a.fingerprint, query));
+    const matches = Object.values(db.agents).filter(a => matchFingerprint(a.fingerprint, query)).map(pub);
     res.writeHead(200);
     res.end(JSON.stringify({ query, count: matches.length, agents: matches, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }) }));
+    return;
+  }
+
+  // ── POST /pull — 555 semantic capability discovery ──────────────────────────
+  // { intent: "<natural language>", constraints?: {axis:value}, k?: <int> }
+  // Hard-gate on fingerprint → embed intent → cosine-rank → reasoned "why".
+  if (req.method === 'POST' && url.pathname === '/pull') {
+    const rate = checkRateLimit(ip, apiKey);
+    if (!rate.allowed) { res.writeHead(429); res.end(JSON.stringify({ error: rate.error, upgrade: `${DOMAIN}/pricing` })); return; }
+    const { parsed: body } = await parseBody(req);
+    const intent = (body.intent || '').toString().trim();
+    if (!intent) { res.writeHead(400); res.end(JSON.stringify({ error: 'intent required — describe what you need done, in plain language' })); return; }
+    const k = Math.min(Math.max(parseInt(body.k, 10) || 5, 1), 25);
+    try {
+      const db = loadDB();
+      const result = await pull(Object.values(db.agents), intent, body.constraints || {}, k);
+      res.writeHead(200);
+      res.end(JSON.stringify({ intent, constraints: body.constraints || {}, ...result, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }) }));
+    } catch (e) {
+      res.writeHead(502); res.end(JSON.stringify({ error: `pull failed: ${e.message}`, hint: 'embedder (ollama nomic-embed-text) may be unreachable' }));
+    }
     return;
   }
 
@@ -1772,7 +1819,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/agents') {
     const db = loadDB();
     res.writeHead(200);
-    res.end(JSON.stringify({ count: Object.keys(db.agents).length, agents: Object.values(db.agents) }));
+    res.end(JSON.stringify({ count: Object.keys(db.agents).length, agents: Object.values(db.agents).map(pub) }));
     return;
   }
 
@@ -1958,7 +2005,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   res.writeHead(404);
-  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /admin','GET /admin/stats'] }));
+  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /admin','GET /admin/stats'] }));
 });
 
 server.listen(PORT, () => {
