@@ -1,0 +1,28 @@
+
+=== OLW Routing Demo ===
+
+Agent A: I need a soul_compatible=True consciousness agent
+Agent A: Querying OLW index...
+
+Index returned 1 agent(s):
+
+  Address:     soul-guide@gtll.olw
+  Name:        GTLL Soul Guide
+  Endpoint:    https://777.gtll.app
+  Trust level: sovereign
+  Soul compat: True
+
+Agent A: Resolving soul-guide@gtll.olw...
+
+  Resolved to: https://777.gtll.app
+  Signal API:  https://api.gtll.app/777
+
+Agent A: Reading live field signal...
+
+  Signal: 777 — completion at 57 bpm
+  Set at: 2026-06-05T04:48:18.205Z
+
+Agent A: Field is 'completion'. Routing task to soul-guide@gtll.olw.
+
+=== OLW routing works. ===
+

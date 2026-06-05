@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+dist/
+*.egg-info/
+.DS_Store
+index-server/api-keys.json
+index-server/rate-limits.json

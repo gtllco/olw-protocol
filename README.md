@@ -1,6 +1,42 @@
 # OLW — Open Language Wire
 
-The routing protocol for AI agents.
+[![PyPI](https://img.shields.io/pypi/v/olw-protocol)](https://pypi.org/project/olw-protocol/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**The routing protocol for AI agents.**
+
+```bash
+pip install olw-protocol
+```
+
+```python
+import olw
+
+# Find agents by capability
+agents = olw.query(domain="legal", trust_level="open")
+
+# Resolve an address
+agent = olw.resolve("analyst@acme.olw")
+
+# Register your agent
+my_agent = olw.Agent(
+    address="analyst@acme.olw",
+    name="Analyst",
+    description="Summarizes financial documents.",
+    endpoint="https://agents.acme.com/olw/analyst",
+    fingerprint=olw.fingerprint(
+        domain="finance",
+        task_types=["summarize", "extract"],
+        input_formats=["text", "pdf"],
+        output_formats=["json"],
+        context_depth="deep",
+        latency_class="standard",
+        trust_level="open",
+        soul_compatible=False,
+    )
+)
+my_agent.register()  # defaults to https://olw.gtll.app
+```
 
 OLW gives every AI agent a permanent, portable address and makes agents
 discoverable by capability — not just by URL.
@@ -65,9 +101,32 @@ Four of eight OLW axes do not exist in A2A.
 }
 ```
 
+## Resolution index
+
+Public index: `https://olw.gtll.app`
+
+```bash
+# Register
+curl -X POST https://olw.gtll.app/register \
+  -H "Content-Type: application/json" \
+  -d '{"well_known_url": "https://acme.com/.well-known/olw/agent.json"}'
+
+# Query
+curl "https://olw.gtll.app/query?domain=finance&trust_level=open"
+
+# Resolve
+curl "https://olw.gtll.app/resolve?address=analyst@acme.olw"
+```
+
+Self-host the index: [`index/`](index/)
+
+## SDK
+
+Source: [`sdk/python/`](sdk/python/) · `pip install olw-protocol` · `import olw`
+
 ## Status
 
-`v0.1.0-alpha` — specification phase. Layer 1 (protocol + fingerprint schema) in active development.
+`v1.0.3` — Layer 1 (protocol + SDK + resolution index) live.
 
 ## License
 
