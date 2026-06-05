@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olw.io/spec/v1/fingerprint",
+  "title": "OLW Agent Capability Fingerprint",
+  "description": "8-axis structured capability descriptor for AI agent discovery and routing",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["domain","task_types","input_formats","output_formats","context_depth","latency_class","trust_level","soul_compatible"],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "description": "Primary domain of expertise",
+      "examples": ["legal","medical","finance","engineering","creative","research","data","security","education","consciousness","general"]
+    },
+    "task_types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Structured task types this agent handles"
+    },
+    "input_formats": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["text","json","pdf","image","audio","video","csv","html","markdown","code","binary","signal"] }
+    },
+    "output_formats": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["text","json","pdf","image","audio","video","csv","html","markdown","code","binary","stream","signal"] }
+    },
+    "context_depth": {
+      "type": "string",
+      "enum": ["shallow","medium","deep","persistent"],
+      "description": "shallow=single-turn, medium=session, deep=multi-step reasoning, persistent=long-horizon memory"
+    },
+    "latency_class": {
+      "type": "string",
+      "enum": ["realtime","interactive","standard","batch"],
+      "description": "realtime=<200ms, interactive=<2s, standard=<30s, batch=minutes-hours"
+    },
+    "trust_level": {
+      "type": "string",
+      "enum": ["public","authenticated","verified","high","sovereign"],
+      "description": "public=no auth, authenticated=token, verified=identity-confirmed, high=mutual-auth, sovereign=air-gapped"
+    },
+    "soul_compatible": {
+      "type": "boolean",
+      "description": "Whether this agent operates under explicit alignment constraints and values-based routing"
+    }
+  },
+  "additionalProperties": {
+    "description": "Extensions allowed — use x_ prefix for custom axes"
+  }
+}
