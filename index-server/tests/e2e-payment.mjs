@@ -71,6 +71,14 @@ const run = async () => {
   const wh = await whRes.json();
   whRes.status === 200 && wh.received ? ok('accepts valid signature → key issued') : bad(`webhook status ${whRes.status}`);
 
+  // 2c. idempotency — replay the SAME event.id, must NOT issue a second key
+  const dupRes = await fetch(`${BASE}/webhook`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': signStripe(payloadStr) },
+    body: payloadStr,
+  });
+  const dup = await dupRes.json();
+  dupRes.status === 200 && dup.duplicate === true ? ok('replayed event → duplicate:true, no new key') : bad(`replay got status ${dupRes.status} duplicate=${dup.duplicate}`);
+
   // ── 3. Retrieve issued key ───────────────────────────────────────────────────
   console.log('\n§3 GET /key?session_id');
   const keyRes = await fetch(`${BASE}/key?session_id=${encodeURIComponent(sessionId)}`);

@@ -26,35 +26,11 @@
         "trust_level": "sovereign",
         "soul_compatible": true
       },
-      "well_known_url": "https://gtll.app/.well-known/olw/agent.json",
-      "signal_api": "https://api.gtll.app/777",
-      "field_url": "https://777.gtll.app",
-      "registered_at": "2026-06-05T08:37:38.514Z",
-      "last_seen": "2026-06-05T08:37:38.514Z"
-    },
-    "test-agent@playwright.olw": {
-      "address": "test-agent@playwright.olw",
-      "name": "Playwright Test Agent",
-      "description": "Ephemeral test agent — safe to delete.",
-      "endpoint": "https://example.com/olw/test",
-      "fingerprint": {
-        "domain": "testing",
-        "task_types": [
-          "test"
-        ],
-        "input_formats": [
-          "json"
-        ],
-        "output_formats": [
-          "json"
-        ],
-        "context_depth": "shallow",
-        "latency_class": "fast",
-        "trust_level": "open",
-        "soul_compatible": false
-      },
-      "registered_at": "2026-06-05T09:48:15.699Z",
-      "last_seen": "2026-06-05T09:48:15.699Z"
+      "verified": true,
+      "well_known_url": "https://777.gtll.app/.well-known/olw/agent.json",
+      "registered_at": "2026-06-05T10:06:05.662Z",
+      "verified_at": "2026-06-05T10:06:05.662Z",
+      "last_seen": "2026-06-05T10:06:05.662Z"
     }
   }
 }

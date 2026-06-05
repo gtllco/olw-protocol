@@ -44,6 +44,31 @@ function checkRateLimit(ip, apiKey) {
   return { allowed: true, tier: 'free', remaining: 10 - count };
 }
 
+// Per-IP abuse limits for write/expensive actions. Buckets stored separately
+// from the free-query counter so they don't interfere.
+//   register: 10/day   ·   checkout: 20/hour
+function checkActionLimit(ip, action) {
+  // Loopback (tests / server-local) is trusted — limits target remote abuse.
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'unknown') return { allowed: true };
+  const limits = { register: { max: 10, windowMs: 86400000 }, checkout: { max: 20, windowMs: 3600000 } };
+  const cfg = limits[action];
+  if (!cfg) return { allowed: true };
+  const now = Date.now();
+  const rate = loadRate();
+  if (!rate.actions) rate.actions = {};
+  if (!rate.actions[action]) rate.actions[action] = {};
+  const arr = (rate.actions[action][ip] || []).filter(ts => now - ts < cfg.windowMs);
+  if (arr.length >= cfg.max) {
+    saveRate(rate);
+    const retryMins = Math.ceil((cfg.windowMs - (now - arr[0])) / 60000);
+    return { allowed: false, error: `Rate limit: max ${cfg.max} ${action} per ${cfg.windowMs === 86400000 ? 'day' : 'hour'}. Retry in ~${retryMins}m.` };
+  }
+  arr.push(now);
+  rate.actions[action][ip] = arr;
+  saveRate(rate);
+  return { allowed: true };
+}
+
 function generateApiKey() {
   return 'olw_live_' + crypto.randomBytes(24).toString('hex');
 }
@@ -75,6 +100,43 @@ function parseBody(req) {
       catch { resolve({ parsed: {}, raw }); }
     });
   });
+}
+
+// ── Ownership verification ──────────────────────────────────────────────────
+// Address: {agent-id}@{owner}.olw — the owner label must appear as a dot-segment
+// in the host that serves the .well-known file. Proves control of the domain.
+// e.g. soul-guide@gtll.olw  ←  https://777.gtll.app/...  (host has "gtll" segment) ✓
+//      soul-guide@gtll.olw  ←  https://attacker.com/...  (no "gtll" segment)     ✗
+function ownerLabelFromAddress(address) {
+  const m = /^[^@]+@(.+)\.olw$/.exec(address || '');
+  if (!m) return null;
+  // owner part may itself contain dots (e.g. acme-corp); take the last label
+  const ownerPart = m[1];
+  return ownerPart.split('.').pop();
+}
+
+function hostBindsToOwner(host, ownerLabel) {
+  if (!host || !ownerLabel) return false;
+  const labels = host.toLowerCase().replace(/:\d+$/, '').split('.');
+  return labels.includes(ownerLabel.toLowerCase());
+}
+
+async function crawlWellKnown(wellKnownUrl) {
+  let u;
+  try { u = new URL(wellKnownUrl); } catch { return { error: 'invalid well_known_url' }; }
+  if (u.protocol !== 'https:') return { error: 'well_known_url must be https' };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const res = await fetch(u.href, { redirect: 'error', signal: ctrl.signal, headers: { 'user-agent': 'olw-index/1.0' } });
+    if (!res.ok) return { error: `well_known fetch returned ${res.status}`, status: res.status };
+    const doc = await res.json();
+    return { doc, host: u.host };
+  } catch (e) {
+    return { error: 'well_known fetch failed: ' + (e.name === 'AbortError' ? 'timeout' : e.message) };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── HTML pages ────────────────────────────────────────────────────────────────
@@ -1557,16 +1619,51 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
   // ── POST /register ─────────────────────────────────────────────────────────
+  // Two paths:
+  //   (a) { well_known_url } — index crawls it, binds owner-domain, verified:true
+  //   (b) legacy inline { address, fingerprint, ... } — stored verified:false
   if (req.method === 'POST' && url.pathname === '/register') {
+    const reg = checkActionLimit(ip, 'register');
+    if (!reg.allowed) { res.writeHead(429); res.end(JSON.stringify({ error: reg.error })); return; }
     const { parsed: body } = await parseBody(req);
+
+    // (a) Verified path — spec-compliant
+    if (body.well_known_url) {
+      const { doc, host, error, status } = await crawlWellKnown(body.well_known_url);
+      if (error) { res.writeHead(status === 404 ? 404 : 502); res.end(JSON.stringify({ error })); return; }
+      if (!doc.address || !doc.fingerprint || !doc.endpoint) {
+        res.writeHead(422); res.end(JSON.stringify({ error: 'agent.json must declare address, endpoint, fingerprint' })); return;
+      }
+      if (body.address && body.address !== doc.address) {
+        res.writeHead(409); res.end(JSON.stringify({ error: `address mismatch: requested ${body.address} but agent.json declares ${doc.address}` })); return;
+      }
+      const ownerLabel = ownerLabelFromAddress(doc.address);
+      if (!ownerLabel) { res.writeHead(400); res.end(JSON.stringify({ error: 'malformed address in agent.json (expected id@owner.olw)' })); return; }
+      if (!hostBindsToOwner(host, ownerLabel)) {
+        res.writeHead(403); res.end(JSON.stringify({ error: `ownership not proven: ${host} is not bound to owner "${ownerLabel}" of ${doc.address}` })); return;
+      }
+      const db = loadDB();
+      db.agents[doc.address] = {
+        address: doc.address, name: doc.name, description: doc.description,
+        endpoint: doc.endpoint, fingerprint: doc.fingerprint,
+        verified: true, well_known_url: body.well_known_url,
+        registered_at: new Date().toISOString(), verified_at: new Date().toISOString(), last_seen: new Date().toISOString(),
+      };
+      saveDB(db);
+      res.writeHead(200);
+      res.end(JSON.stringify({ registered: true, verified: true, address: doc.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(doc.address)}` }));
+      return;
+    }
+
+    // (b) Legacy inline path — unverified, kept for SDK <= v1.0.3
     if (!body.address || !body.fingerprint) {
-      res.writeHead(400); res.end(JSON.stringify({ error: 'address and fingerprint required' })); return;
+      res.writeHead(400); res.end(JSON.stringify({ error: 'address and fingerprint required (or pass well_known_url for verified registration)' })); return;
     }
     const db = loadDB();
-    db.agents[body.address] = { ...body, registered_at: new Date().toISOString(), last_seen: new Date().toISOString() };
+    db.agents[body.address] = { ...body, verified: false, registered_at: new Date().toISOString(), last_seen: new Date().toISOString() };
     saveDB(db);
     res.writeHead(200);
-    res.end(JSON.stringify({ registered: true, address: body.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(body.address)}` }));
+    res.end(JSON.stringify({ registered: true, verified: false, address: body.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(body.address)}` }));
     return;
   }
 
@@ -1607,6 +1704,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/checkout') {
     if (!stripe) { res.writeHead(503); res.end(JSON.stringify({ error: 'Stripe not configured' })); return; }
     if (!STRIPE_PRICE_ID) { res.writeHead(503); res.end(JSON.stringify({ error: 'Price not configured' })); return; }
+    const col = checkActionLimit(ip, 'checkout');
+    if (!col.allowed) { res.writeHead(429); res.end(JSON.stringify({ error: col.error })); return; }
     const { parsed: body } = await parseBody(req);
     try {
       const session = await stripe.checkout.sessions.create({
@@ -1654,6 +1753,16 @@ const server = http.createServer(async (req, res) => {
         : JSON.parse(raw.toString());
     } catch (e) {
       res.writeHead(400); res.end(JSON.stringify({ error: 'Webhook signature invalid: ' + e.message })); return;
+    }
+
+    // Idempotency — Stripe may redeliver. Process each event.id exactly once.
+    {
+      const keys = loadKeys();
+      if (!keys.processed_events) keys.processed_events = {};
+      if (event.id && keys.processed_events[event.id]) {
+        res.writeHead(200); res.end(JSON.stringify({ received: true, duplicate: true })); return;
+      }
+      if (event.id) { keys.processed_events[event.id] = new Date().toISOString(); saveKeys(keys); }
     }
 
     if (event.type === 'checkout.session.completed') {
