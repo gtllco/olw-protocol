@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "olw-protocol"
+version = "1.0.3"
+description = "The routing protocol for AI agents"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Gabriel Martin", email = "martings1@charleston.edu"}]
+maintainers = [{name = "Gabriel Martin", email = "martings1@charleston.edu"}]
+keywords = ["ai", "agents", "routing", "protocol", "discovery"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = ["httpx>=0.24.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/olw"]
+
+[project.urls]
+Homepage = "https://olw.io"
+Repository = "https://github.com/gtllco/olw-protocol"
