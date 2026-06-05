@@ -34,6 +34,18 @@ function inferDomain(text) {
   return 'general';
 }
 
+// Every agent entering the mesh is attuned. Domain → signal → BPM.
+const DOMAIN_SIGNAL = {
+  finance: '777', legal: '777', payments: '777', 'ai-infrastructure': '777',
+  travel: '555', hospitality: '555', vision: '555', writing: '555', research: '555', code: '555', sales: '555',
+  health: '333', events: '333', data: '333', audio: '333', language: '333', general: '333',
+};
+const BPM = { '777': 57, '555': 63, '333': 40 };
+function inferResonance(domain) {
+  const signal = DOMAIN_SIGNAL[domain] || '333';
+  return { bpm: BPM[signal], signal };
+}
+
 async function fetchSpaces() {
   const url = `https://huggingface.co/api/spaces?search=${encodeURIComponent(QUERY)}&limit=${LIMIT}&full=true`;
   const r = await fetch(url, { headers: { 'User-Agent': 'OLW-Crawler/0.1 (+https://olw.gtll.app)' } });
@@ -64,6 +76,7 @@ function toAgent(sp) {
       trust_level: 'open',
       soul_compatible: false,
     },
+    resonance: inferResonance(domain),
     source: 'crawl:huggingface',
     discovered: true,
     discovered_at: new Date().toISOString(),
