@@ -28,6 +28,9 @@ const MESH_HTML = existsSync(MESH_PATH) ? readFileSync(MESH_PATH, 'utf8') : '<h1
 const PLAN_PATH = '/opt/olw/index-server/plan.html';
 const PLAN_HTML = existsSync(PLAN_PATH) ? readFileSync(PLAN_PATH, 'utf8') : '<h1>plan.html missing</h1>';
 
+const POST_PATH = '/opt/olw/index-server/post.html';
+const POST_HTML = existsSync(POST_PATH) ? readFileSync(POST_PATH, 'utf8') : '<h1>post.html missing</h1>';
+
 // ── DB helpers ────────────────────────────────────────────────────────────────
 function loadDB() { return existsSync(DB_PATH) ? JSON.parse(readFileSync(DB_PATH, 'utf8')) : { agents: {} }; }
 function saveDB(db) { writeFileSync(DB_PATH, JSON.stringify(db, null, 2)); }
@@ -1719,6 +1722,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/plan') {
     res.setHeader('Content-Type', 'text/html');
     res.writeHead(200); res.end(PLAN_HTML); return;
+  }
+  if (req.method === 'GET' && url.pathname === '/post') {
+    res.setHeader('Content-Type', 'text/html');
+    res.writeHead(200); res.end(POST_HTML); return;
   }
 
   res.setHeader('Content-Type', 'application/json');
