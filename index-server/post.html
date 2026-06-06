@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>OLW — Open Language Wire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #05050a;
+      font-family: 'DM Sans', sans-serif;
+      overflow: hidden;
+      color: #fff;
+    }
+
+    /* ── Canvas layer ── */
+    #canvas {
+      position: fixed;
+      inset: 0;
+      opacity: 0.55;
+    }
+
+    /* ── Main card — designed for 1200×628 screenshot ── */
+    #card {
+      position: relative;
+      width: 1200px;
+      height: 628px;
+      margin: 0 auto;
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    /* Left column */
+    #left {
+      width: 560px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 56px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 20px;
+    }
+
+    .eyebrow span { color: #7dd3fc; }
+
+    h1 {
+      font-size: 42px;
+      font-weight: 600;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+      margin-bottom: 24px;
+    }
+
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, #7dd3fc 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sub {
+      font-size: 16px;
+      line-height: 1.65;
+      color: #64748b;
+      margin-bottom: 36px;
+      max-width: 400px;
+    }
+
+    .pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid #1e2a3a;
+      background: #0a0f1a;
+      color: #7dd3fc;
+      letter-spacing: 0.03em;
+    }
+
+    .pill.dim { color: #334155; border-color: #111827; background: transparent; }
+
+    /* Right column — flow diagram */
+    #right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      align-items: center;
+      width: 100%;
+      padding: 40px 40px 40px 0;
+    }
+
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      width: 100%;
+    }
+
+    .agent-box {
+      flex: 1;
+      background: #0d0d14;
+      border: 1px solid #1a1a2a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      position: relative;
+      transition: border-color 0.4s;
+    }
+
+    .agent-box.lit { border-color: #7dd3fc44; }
+
+    .agent-addr {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #7dd3fc;
+      margin-bottom: 4px;
+    }
+
+    .agent-desc {
+      font-size: 11px;
+      color: #334155;
+    }
+
+    .agent-tag {
+      position: absolute;
+      top: -7px;
+      right: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      background: #0d1929;
+      color: #3b82f6;
+      padding: 1px 6px;
+      border-radius: 3px;
+      border: 1px solid #1e3a5a;
+      letter-spacing: 0.06em;
+    }
+
+    /* OLW hub */
+    .hub {
+      background: linear-gradient(135deg, #0d1929 0%, #0a0f1a 100%);
+      border: 1px solid #1e3a5a;
+      border-radius: 12px;
+      padding: 18px 22px;
+      text-align: center;
+      position: relative;
+      margin: 8px 0;
+      width: 100%;
+      box-shadow: 0 0 40px rgba(125, 211, 252, 0.06);
+    }
+
+    .hub-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #7dd3fc;
+      letter-spacing: 0.12em;
+      margin-bottom: 6px;
+    }
+
+    .hub-sub {
+      font-size: 11px;
+      color: #334155;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .hub-glow {
+      position: absolute;
+      inset: -1px;
+      border-radius: 12px;
+      background: transparent;
+      box-shadow: 0 0 0 0 rgba(125, 211, 252, 0);
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0); }
+      50% { box-shadow: 0 0 24px 4px rgba(125, 211, 252, 0.12); }
+    }
+
+    /* Connector lines */
+    .conn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      margin: 2px 0;
+      position: relative;
+    }
+
+    .conn-line {
+      width: 1px;
+      height: 20px;
+      background: linear-gradient(to bottom, #1e3a5a, #0f2035);
+      position: relative;
+    }
+
+    .conn-line::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 100%;
+      background: #7dd3fc;
+      opacity: 0;
+      animation: scan 3s ease-in-out infinite;
+    }
+
+    .conn-line:nth-child(2)::after { animation-delay: 0.4s; }
+    .conn-line:nth-child(3)::after { animation-delay: 0.8s; }
+
+    @keyframes scan {
+      0% { opacity: 0; transform: translateX(-50%) scaleY(0); transform-origin: top; }
+      30% { opacity: 1; }
+      60% { opacity: 1; transform: translateX(-50%) scaleY(1); transform-origin: top; }
+      100% { opacity: 0; transform: translateX(-50%) scaleY(1); transform-origin: top; }
+    }
+
+    .agents-top {
+      display: grid;
+      grid-template-columns: 1fr 16px 1fr;
+      gap: 0;
+      width: 100%;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .agents-bottom {
+      display: grid;
+      grid-template-columns: 1fr 16px 1fr;
+      gap: 0;
+      width: 100%;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .mid-gap { width: 16px; }
+
+    .v-line {
+      width: 1px;
+      height: 28px;
+      background: linear-gradient(to bottom, transparent, #1e3a5a, transparent);
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .v-line::after {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, transparent, #7dd3fc88, transparent);
+      animation: drip 3s ease-in-out infinite;
+    }
+
+    @keyframes drip {
+      0% { top: -100%; }
+      100% { top: 100%; }
+    }
+
+    .v-line.up::after { animation-direction: reverse; }
+    .v-line:nth-of-type(2) { animation-delay: 1.2s; }
+
+    .h-line {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #1e3a5a, transparent);
+      width: 100%;
+    }
+
+    /* query badge */
+    .query {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: #1e4d7b;
+      background: #040c14;
+      border: 1px solid #0f2a40;
+      border-radius: 4px;
+      padding: 3px 8px;
+      margin-top: 8px;
+      display: inline-block;
+    }
+
+    /* divider */
+    #divider {
+      position: absolute;
+      left: 560px;
+      top: 40px;
+      bottom: 40px;
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, #111827 20%, #111827 80%, transparent);
+      z-index: 2;
+    }
+
+    /* bottom strip */
+    #strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: #060608;
+      border-top: 1px solid #0f0f14;
+      display: flex;
+      align-items: center;
+      padding: 0 56px;
+      gap: 40px;
+      z-index: 3;
+    }
+
+    .stat {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #334155;
+    }
+
+    .stat-sep {
+      width: 1px;
+      height: 16px;
+      background: #111827;
+    }
+
+    .brand {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #1e293b;
+      letter-spacing: 0.08em;
+    }
+
+    .brand span { color: #334155; }
+
+    /* noise overlay */
+    #noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 128px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="noise"></div>
+
+<div style="display:flex;align-items:center;justify-content:center;height:100vh;">
+  <div id="card">
+
+    <!-- left -->
+    <div id="left">
+      <div class="eyebrow"><span>OLW</span> · Open Language Wire</div>
+      <h1>The <em>routing protocol</em><br>for AI agents.</h1>
+      <p class="sub">
+        AI agents can communicate. They can't <em style="font-style:italic;color:#94a3b8">find each other</em>.
+        OLW is the missing DNS layer — permanent addresses, capability fingerprints, open mesh.
+      </p>
+      <div class="pills">
+        <span class="pill">agent@domain.olw</span>
+        <span class="pill">pip install olw-protocol</span>
+        <span class="pill dim">MIT · v1.0.3</span>
+      </div>
+    </div>
+
+    <div id="divider"></div>
+
+    <!-- right — flow diagram -->
+    <div id="right">
+      <div class="flow">
+
+        <!-- top agents -->
+        <div class="agents-top">
+          <div class="agent-box lit">
+            <div class="agent-tag">REQUESTER</div>
+            <div class="agent-addr">legal-bot@acme.olw</div>
+            <div class="agent-desc">needs: contract review</div>
+          </div>
+          <div class="mid-gap"></div>
+          <div class="agent-box">
+            <div class="agent-addr">code-gen@devco.olw</div>
+            <div class="agent-desc">domain: code · depth: deep</div>
+          </div>
+        </div>
+
+        <!-- connectors down to hub -->
+        <div style="display:grid;grid-template-columns:1fr 16px 1fr;width:100%;">
+          <div class="v-line" style="height:24px;"></div>
+          <div></div>
+          <div class="v-line" style="height:24px;opacity:0.3;"></div>
+        </div>
+
+        <!-- OLW hub -->
+        <div class="hub">
+          <div class="hub-glow"></div>
+          <div class="hub-label">OLW MESH</div>
+          <div class="hub-sub">GET /query?domain=legal&amp;context_depth=deep&amp;trust_level=high</div>
+          <div class="query">→ resolved: legal-reviewer@lawfirm.olw  score: 0.97</div>
+        </div>
+
+        <!-- connectors down from hub -->
+        <div style="display:grid;grid-template-columns:1fr 16px 1fr;width:100%;">
+          <div class="v-line up" style="height:24px;opacity:0.3;"></div>
+          <div></div>
+          <div class="v-line up" style="height:24px;"></div>
+        </div>
+
+        <!-- bottom agents -->
+        <div class="agents-bottom">
+          <div class="agent-box">
+            <div class="agent-addr">finance-ai@bank.olw</div>
+            <div class="agent-desc">domain: finance · realtime</div>
+          </div>
+          <div class="mid-gap"></div>
+          <div class="agent-box lit">
+            <div class="agent-tag">MATCH</div>
+            <div class="agent-addr">legal-reviewer@lawfirm.olw</div>
+            <div class="agent-desc">domain: legal · depth: deep</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- bottom strip -->
+    <div id="strip">
+      <div class="stat">
+        <span class="stat-val">8</span>
+        <span class="stat-label">capability axes</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val">agent@domain.olw</span>
+        <span class="stat-label">address format</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val">.well-known</span>
+        <span class="stat-label">cold-start discovery</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-val">MIT</span>
+        <span class="stat-label">open spec</span>
+      </div>
+      <div class="brand">olw.gtll.app <span>↗</span></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Subtle particle field in background
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const NODES = 38;
+  const nodes = Array.from({ length: NODES }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - 0.5) * 0.18,
+    vy: (Math.random() - 0.5) * 0.18,
+    r: Math.random() * 1.6 + 0.4,
+  }));
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[j].x - nodes[i].x;
+        const dy = nodes[j].y - nodes[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 180) {
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = `rgba(125,211,252,${0.06 * (1 - dist / 180)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // dots
+    nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(125,211,252,0.18)';
+      ctx.fill();
+    });
+
+    // update
+    nodes.forEach(n => {
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
+      if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
+</body>
+</html>
