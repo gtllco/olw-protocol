@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>OLW · Protocol Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #080808; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0d0d0d; }
+    ::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState } = React;
+
+    const sections = [
+      { id: "overview", label: "Overview" },
+      { id: "problem",  label: "The Problem" },
+      { id: "architecture", label: "Architecture" },
+      { id: "spec",     label: "Spec" },
+      { id: "api",      label: "API" },
+      { id: "sdk",      label: "SDK" },
+      { id: "quickstart", label: "Quickstart" },
+    ];
+
+    const Code = ({ children }) => (
+      <pre style={{
+        background: "#0a0a0a", border: "1px solid #1e1e1e", borderRadius: "6px",
+        padding: "20px 24px", overflowX: "auto", fontSize: "13px", lineHeight: "1.7",
+        color: "#e2e8f0", margin: "16px 0",
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+      }}>
+        <code>{children}</code>
+      </pre>
+    );
+
+    const Tag = ({ children }) => (
+      <span style={{
+        display: "inline-block", background: "#1a1a2e", color: "#94a3b8",
+        fontSize: "11px", fontFamily: "'JetBrains Mono', monospace",
+        padding: "2px 8px", borderRadius: "3px", border: "1px solid #1e2a3a",
+        marginRight: "6px", marginBottom: "4px",
+      }}>{children}</span>
+    );
+
+    const Table = ({ headers, rows }) => (
+      <div style={{ overflowX: "auto", margin: "16px 0" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <thead>
+            <tr>
+              {headers.map((h, i) => (
+                <th key={i} style={{
+                  textAlign: "left", padding: "10px 16px", background: "#0d0d0d",
+                  color: "#64748b", fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: "11px", fontWeight: "500", borderBottom: "1px solid #1e1e1e",
+                  letterSpacing: "0.05em", textTransform: "uppercase",
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid #111" }}>
+                {row.map((cell, j) => (
+                  <td key={j} style={{
+                    padding: "10px 16px",
+                    color: j === 0 ? "#7dd3fc" : j === row.length - 1 ? "#4ade80" : "#94a3b8",
+                    fontFamily: j === 0 ? "'JetBrains Mono', monospace" : "inherit",
+                    fontSize: j === 0 ? "12px" : "13px",
+                  }}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    const H2 = ({ children }) => (
+      <h2 style={{
+        fontSize: "22px", fontWeight: "600", color: "#f1f5f9",
+        margin: "40px 0 16px", fontFamily: "'DM Sans', sans-serif",
+        letterSpacing: "-0.02em",
+      }}>{children}</h2>
+    );
+
+    const H3 = ({ children }) => (
+      <h3 style={{
+        fontSize: "14px", fontWeight: "600", color: "#7dd3fc",
+        margin: "28px 0 10px", fontFamily: "'JetBrains Mono', monospace",
+        letterSpacing: "0.05em", textTransform: "uppercase",
+      }}>{children}</h3>
+    );
+
+    const P = ({ children }) => (
+      <p style={{
+        color: "#94a3b8", lineHeight: "1.8", fontSize: "14px",
+        margin: "10px 0", fontFamily: "'DM Sans', sans-serif",
+      }}>{children}</p>
+    );
+
+    const Callout = ({ children, accent = "#7dd3fc" }) => (
+      <div style={{
+        borderLeft: `3px solid ${accent}`, background: "#0d1117",
+        padding: "14px 20px", margin: "16px 0", borderRadius: "0 6px 6px 0",
+      }}>
+        <p style={{
+          color: "#cbd5e1", fontSize: "13px", lineHeight: "1.7",
+          margin: 0, fontFamily: "'DM Sans', sans-serif",
+        }}>{children}</p>
+      </div>
+    );
+
+    const LayerCard = ({ n, title, line1, line2, accent }) => (
+      <div style={{
+        display: "grid", gridTemplateColumns: "48px 1fr", gap: "16px",
+        background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: "8px",
+        padding: "20px", marginBottom: "12px", alignItems: "start",
+      }}>
+        <div style={{
+          width: "48px", height: "48px", borderRadius: "8px",
+          background: "#0a0a0a", border: `1px solid ${accent}22`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: accent, fontFamily: "'JetBrains Mono', monospace",
+          fontSize: "12px", fontWeight: "700",
+        }}>n={n}</div>
+        <div>
+          <div style={{ color: "#f1f5f9", fontWeight: "600", fontSize: "14px", marginBottom: "6px", fontFamily: "'DM Sans', sans-serif" }}>{title}</div>
+          <div style={{ color: "#64748b", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", marginBottom: "4px" }}>{line1}</div>
+          <div style={{ color: "#475569", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace" }}>{line2}</div>
+        </div>
+      </div>
+    );
+
+    function OLWDocs() {
+      const [active, setActive] = useState("overview");
+
+      const navStyle = (id) => ({
+        display: "block", padding: "7px 14px", borderRadius: "5px",
+        cursor: "pointer", fontSize: "13px", fontFamily: "'DM Sans', sans-serif",
+        color: active === id ? "#7dd3fc" : "#475569",
+        background: active === id ? "#0d1929" : "transparent",
+        border: "none", textAlign: "left", width: "100%",
+        transition: "color 0.15s",
+        fontWeight: active === id ? "500" : "400",
+      });
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#080808", color: "#e2e8f0",
+          display: "flex", fontFamily: "'DM Sans', sans-serif",
+        }}>
+          {/* Sidebar */}
+          <div style={{
+            width: "220px", minWidth: "220px", background: "#060606",
+            borderRight: "1px solid #111", padding: "32px 16px",
+            position: "sticky", top: 0, height: "100vh", overflowY: "auto",
+          }}>
+            <div style={{ marginBottom: "32px", paddingLeft: "14px" }}>
+              <div style={{ fontSize: "13px", fontFamily: "'JetBrains Mono', monospace", color: "#7dd3fc", letterSpacing: "0.1em" }}>OLW</div>
+              <div style={{ fontSize: "11px", color: "#334155", marginTop: "2px", fontFamily: "'JetBrains Mono', monospace" }}>v1.0.3 · protocol</div>
+            </div>
+            <div style={{ fontSize: "10px", color: "#1e293b", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase", paddingLeft: "14px", marginBottom: "8px" }}>Docs</div>
+            {sections.map(s => (
+              <button key={s.id} style={navStyle(s.id)} onClick={() => setActive(s.id)}>
+                {s.label}
+              </button>
+            ))}
+            <div style={{ marginTop: "40px", paddingLeft: "14px", borderTop: "1px solid #111", paddingTop: "20px" }}>
+              <a href="https://github.com/gtllco/olw-protocol" target="_blank" style={{ color: "#334155", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", textDecoration: "none" }}>GitHub ↗</a>
+              <br />
+              <a href="https://pypi.org/project/olw-protocol/" target="_blank" style={{ color: "#334155", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", textDecoration: "none", marginTop: "6px", display: "block" }}>PyPI ↗</a>
+              <br />
+              <a href="https://olw.gtll.app" target="_blank" style={{ color: "#334155", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", textDecoration: "none", marginTop: "6px", display: "block" }}>Index ↗</a>
+            </div>
+          </div>
+
+          {/* Main */}
+          <div style={{ flex: 1, padding: "48px 60px", maxWidth: "820px" }}>
+
+            {active === "overview" && (
+              <div>
+                <div style={{ marginBottom: "40px" }}>
+                  <div style={{ fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", color: "#334155", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px" }}>Open Language Wire</div>
+                  <h1 style={{ fontSize: "36px", fontWeight: "600", color: "#f8fafc", margin: "0 0 12px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+                    The routing protocol<br />for AI agents.
+                  </h1>
+                  <p style={{ color: "#475569", fontSize: "16px", margin: "0 0 24px", lineHeight: 1.6 }}>
+                    MIT licensed · v1.0.3 · live index at olw.gtll.app
+                  </p>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <Tag>pip install olw-protocol</Tag>
+                    <Tag>Python ≥ 3.9</Tag>
+                    <Tag>MIT</Tag>
+                  </div>
+                </div>
+
+                <Callout accent="#7dd3fc">
+                  AI agents can communicate (A2A, MCP). They cannot <em>find each other</em>. There is no standard way to ask: "which agent can handle legal document review, with multi-step reasoning, under 2 seconds, with alignment constraints?" Every multi-agent system today hardcodes its relationships. That is where the web was in 1993.
+                </Callout>
+
+                <H2>What OLW is</H2>
+                <P>OLW gives every AI agent a permanent, portable address and makes agents discoverable by capability — not just by URL. It is the missing DNS layer for the agent internet.</P>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", margin: "20px 0" }}>
+                  {[
+                    { label: "Address format", value: "agent@domain.olw" },
+                    { label: "Capability fingerprint", value: "8-axis structured schema" },
+                    { label: "Resolution index", value: "olw.gtll.app (live)" },
+                    { label: "Cold-start discovery", value: ".well-known/olw/agent.json" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: "6px", padding: "16px" }}>
+                      <div style={{ fontSize: "11px", color: "#475569", fontFamily: "'JetBrains Mono', monospace", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{item.label}</div>
+                      <div style={{ fontSize: "13px", color: "#7dd3fc", fontFamily: "'JetBrains Mono', monospace" }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <H2>vs. A2A</H2>
+                <P>From the A2A specification directly: <em>"The current A2A specification does not prescribe a standard API for curated registries."</em> A2A handles agent communication. OLW handles agent discovery. They are complementary, not competing.</P>
+              </div>
+            )}
+
+            {active === "problem" && (
+              <div>
+                <H2>The Problem</H2>
+                <P>Multi-agent AI systems are proliferating. Every framework — LangChain, CrewAI, AutoGen, A2A — provides ways for agents to communicate once they know about each other. None provides a standard way to find the right agent in the first place.</P>
+                <P>The result: every multi-agent system hardcodes its agent relationships. This is brittle, unscalable, and repeats the mistake the early web made before DNS and search.</P>
+
+                <H3>The gap, explicitly</H3>
+                <Callout accent="#f59e0b">
+                  "The current A2A specification does not prescribe a standard API for curated registries." — Google A2A specification, agent discovery section
+                </Callout>
+
+                <H3>What's missing</H3>
+                <Table
+                  headers={["Capability", "Status"]}
+                  rows={[
+                    ["Agent-to-agent communication", "✓ Solved (A2A, MCP)"],
+                    ["Agent capability declaration", "✓ Partial (A2A AgentSkill — unstructured)"],
+                    ["Agent discovery by capability", "✗ Not standardized"],
+                    ["Cross-network agent resolution", "✗ Not standardized"],
+                    ["Capability-based routing query", "✗ Not standardized"],
+                  ]}
+                />
+
+                <H3>OLW vs A2A AgentSkill</H3>
+                <Table
+                  headers={["OLW axis", "A2A equivalent", "verdict"]}
+                  rows={[
+                    ["`domain`", "tags (free text)", "OLW — structured enum vs folksonomy"],
+                    ["`task_types`", "description (free text)", "OLW — queryable vs unstructured"],
+                    ["`input_formats`", "input_modes", "parity"],
+                    ["`output_formats`", "output_modes", "parity"],
+                    ["`context_depth`", "not present", "OLW only"],
+                    ["`latency_class`", "not present", "OLW only"],
+                    ["`trust_level`", "security_requirements (auth only)", "OLW — semantic trust vs auth"],
+                    ["`soul_compatible`", "not present", "OLW only"],
+                  ]}
+                />
+                <P>Four of eight OLW axes have no A2A equivalent.</P>
+              </div>
+            )}
+
+            {active === "architecture" && (
+              <div>
+                <H2>Architecture</H2>
+                <P>OLW is one primitive — routing — recursing through every layer of the agent stack. Three composable layers, each blind to the others, each honoring only its interface contract.</P>
+
+                <LayerCard n={0} title="Resonance" accent="#a78bfa"
+                  line1="intent → signal"
+                  line2="Human intent becomes routable signal" />
+                <LayerCard n={1} title="OLW — Agent Discovery" accent="#7dd3fc"
+                  line1="intent → agent"
+                  line2="Capability finds capability across the open mesh" />
+                <LayerCard n={2} title="ORBIT — Model Routing" accent="#4ade80"
+                  line1="agent → model"
+                  line2="Task routes to optimal model (cost · latency · depth)" />
+
+                <H3>Resolution flow</H3>
+                <Code>{`1. Agent publishes .well-known/olw/agent.json
+   └─ contains: address, fingerprint, endpoint
+
+2. OLW crawler indexes the agent surface
+   └─ auto-fingerprints, fills the mesh
+
+3. Requester queries the index
+   └─ GET /query?domain=legal&trust_level=high
+
+4. Index returns ranked agent list
+   └─ sorted by capability match score
+
+5. Requester resolves chosen address
+   └─ GET /resolve?address=analyst@acme.olw
+   └─ returns: endpoint, fingerprint, metadata
+
+6. Agent-to-agent communication begins
+   └─ via A2A, MCP, or direct HTTP`}</Code>
+
+                <H3>Decentralized fallback</H3>
+                <P>Agents resolve without the central index via <code style={{ color: "#7dd3fc", fontFamily: "monospace", fontSize: "12px" }}>.well-known/olw/agent.json</code>. The layer survives even if the index goes offline. The index accelerates discovery; it is not required for resolution.</P>
+
+                <H3>Cold-start solution</H3>
+                <P>Instead of waiting for agents to register, the OLW crawler sweeps the public agent surface, auto-fingerprints discoverable agents, and seeds the mesh. Googlebot for agents.</P>
+              </div>
+            )}
+
+            {active === "spec" && (
+              <div>
+                <H2>Specification</H2>
+                <P>MIT licensed. The schema is open. The resolution index is proprietary.</P>
+
+                <H3>Address format</H3>
+                <Code>{`{agent-id}@{owner-domain}.olw
+
+Examples:
+  analyst@acme.olw
+  legal-reviewer@lawfirm.olw
+  soul-guide@gtll.olw`}</Code>
+
+                <H3>agent.json — full schema</H3>
+                <Code>{`{
+  "olw_address": "analyst@acme.olw",
+  "name": "Financial Analyst",
+  "description": "Summarizes financial documents and extracts key metrics.",
+  "endpoint": "https://agents.acme.com/olw/analyst",
+  "fingerprint": {
+    "domain": "finance",
+    "task_types": ["summarize", "extract", "analyze"],
+    "input_formats": ["text", "pdf", "json"],
+    "output_formats": ["json", "text"],
+    "context_depth": "deep",
+    "latency_class": "standard",
+    "trust_level": "open",
+    "soul_compatible": false
+  }
+}`}</Code>
+
+                <H3>Fingerprint axes</H3>
+                <Table
+                  headers={["Axis", "Type", "Values"]}
+                  rows={[
+                    ["`domain`", "enum", "finance, legal, medical, code, general, ..."],
+                    ["`task_types`", "string[]", "summarize, extract, analyze, review, generate, ..."],
+                    ["`input_formats`", "string[]", "text, pdf, json, image, audio, ..."],
+                    ["`output_formats`", "string[]", "text, json, markdown, code, ..."],
+                    ["`context_depth`", "enum", "shallow · standard · deep"],
+                    ["`latency_class`", "enum", "realtime · standard · batch"],
+                    ["`trust_level`", "enum", "open · verified · high · restricted"],
+                    ["`soul_compatible`", "boolean", "true · false"],
+                  ]}
+                />
+
+                <H3>Well-known path</H3>
+                <Code>{`https://{domain}/.well-known/olw/agent.json`}</Code>
+                <P>Hosting this file is sufficient for cold-start discovery. No registration call required.</P>
+              </div>
+            )}
+
+            {active === "api" && (
+              <div>
+                <H2>Resolution Index API</H2>
+                <P>Public index: <code style={{ color: "#7dd3fc", fontFamily: "monospace", fontSize: "12px" }}>https://olw.gtll.app</code></P>
+
+                <H3>Register an agent</H3>
+                <Code>{`POST /register
+Content-Type: application/json
+
+{
+  "well_known_url": "https://acme.com/.well-known/olw/agent.json"
+}
+
+# Response
+{
+  "status": "registered",
+  "address": "analyst@acme.olw",
+  "indexed_at": "2026-06-05T00:00:00Z"
+}`}</Code>
+
+                <H3>Query by capability</H3>
+                <Code>{`GET /query?domain=finance&trust_level=open
+GET /query?domain=legal&context_depth=deep&latency_class=standard
+GET /query?task_types=summarize,extract&soul_compatible=true
+
+# Response
+{
+  "results": [
+    {
+      "address": "analyst@acme.olw",
+      "score": 0.94,
+      "fingerprint": { ... },
+      "endpoint": "https://agents.acme.com/olw/analyst"
+    }
+  ]
+}`}</Code>
+
+                <H3>Resolve an address</H3>
+                <Code>{`GET /resolve?address=analyst@acme.olw
+
+# Response
+{
+  "address": "analyst@acme.olw",
+  "name": "Financial Analyst",
+  "endpoint": "https://agents.acme.com/olw/analyst",
+  "fingerprint": { ... },
+  "verified": true
+}`}</Code>
+
+                <H3>Semantic pull (POST /pull)</H3>
+                <Code>{`POST /pull
+Content-Type: application/json
+
+{
+  "intent": "I need an agent that can review a 40-page legal contract
+             for liability clauses, with multi-step reasoning, fast."
+}
+
+# Response — reasoned, ranked
+{
+  "matches": [...],
+  "reasoning": "Matched on: domain=legal, task=contract_review,
+                context_depth=deep, latency_class=standard",
+  "top": "legal-reviewer@acme.olw"
+}`}</Code>
+              </div>
+            )}
+
+            {active === "sdk" && (
+              <div>
+                <H2>Python SDK</H2>
+                <Code>{`pip install olw-protocol`}</Code>
+
+                <H3>Query agents</H3>
+                <Code>{`import olw
+
+agents = olw.query(
+    domain="legal",
+    trust_level="high",
+    context_depth="deep"
+)
+
+for agent in agents:
+    print(agent.address, agent.score)`}</Code>
+
+                <H3>Resolve an address</H3>
+                <Code>{`agent = olw.resolve("analyst@acme.olw")
+print(agent.endpoint)
+print(agent.fingerprint)`}</Code>
+
+                <H3>Register your agent</H3>
+                <Code>{`my_agent = olw.Agent(
+    address="my-agent@example.olw",
+    name="My Agent",
+    description="What it does.",
+    endpoint="https://example.com/agent",
+    fingerprint=olw.fingerprint(
+        domain="finance",
+        task_types=["summarize", "extract"],
+        input_formats=["text", "pdf"],
+        output_formats=["json"],
+        context_depth="deep",
+        latency_class="standard",
+        trust_level="open",
+        soul_compatible=False,
+    )
+)
+
+my_agent.register()  # posts to https://olw.gtll.app`}</Code>
+
+                <H3>Self-host the index</H3>
+                <Code>{`# Clone and run your own resolution index
+git clone https://github.com/gtllco/olw-protocol
+cd olw-protocol/index
+# see index/README for setup
+
+# Point the SDK at your index
+olw.configure(index_url="https://your-index.example.com")`}</Code>
+              </div>
+            )}
+
+            {active === "quickstart" && (
+              <div>
+                <H2>Quickstart</H2>
+                <P>Get an agent registered and discoverable in under 5 minutes.</P>
+
+                <H3>1. Install</H3>
+                <Code>{`pip install olw-protocol`}</Code>
+
+                <H3>2. Create your agent.json</H3>
+                <Code>{`{
+  "olw_address": "my-agent@yourdomain.olw",
+  "name": "My Agent",
+  "description": "One sentence: what this agent does.",
+  "endpoint": "https://yourdomain.com/agent",
+  "fingerprint": {
+    "domain": "general",
+    "task_types": ["summarize"],
+    "input_formats": ["text"],
+    "output_formats": ["text"],
+    "context_depth": "standard",
+    "latency_class": "standard",
+    "trust_level": "open",
+    "soul_compatible": false
+  }
+}`}</Code>
+
+                <H3>3. Host it</H3>
+                <Code>{`# Serve at:
+https://yourdomain.com/.well-known/olw/agent.json`}</Code>
+
+                <H3>4. Register</H3>
+                <Code>{`curl -X POST https://olw.gtll.app/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"well_known_url": "https://yourdomain.com/.well-known/olw/agent.json"}'`}</Code>
+
+                <P>Your agent is now discoverable on the mesh. Verify:</P>
+                <Code>{`curl "https://olw.gtll.app/resolve?address=my-agent@yourdomain.olw"`}</Code>
+
+                <H3>5. Query the mesh</H3>
+                <Code>{`import olw
+
+agents = olw.query(domain="general", trust_level="open")
+for a in agents:
+    print(a.address, a.score)`}</Code>
+
+                <Callout accent="#4ade80">
+                  That's it. Your agent has an address, a fingerprint, and is discoverable by any system querying the OLW index — no integration required on their end.
+                </Callout>
+
+                <H3>Resources</H3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                  {[
+                    ["GitHub", "github.com/gtllco/olw-protocol", "https://github.com/gtllco/olw-protocol"],
+                    ["PyPI", "pypi.org/project/olw-protocol", "https://pypi.org/project/olw-protocol"],
+                    ["Live Index", "olw.gtll.app", "https://olw.gtll.app"],
+                    ["Mesh Visualizer", "olw.gtll.app/mesh", "https://olw.gtll.app/mesh"],
+                  ].map(([label, display, href]) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", background: "#0d0d0d", borderRadius: "6px", border: "1px solid #1a1a1a" }}>
+                      <span style={{ color: "#94a3b8", fontSize: "13px" }}>{label}</span>
+                      <a href={href} target="_blank" style={{ color: "#7dd3fc", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", textDecoration: "none" }}>{display} ↗</a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<OLWDocs />);
+  </script>
+</body>
+</html>
