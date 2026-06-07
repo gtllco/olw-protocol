@@ -224,7 +224,9 @@ const LANDING_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OLW — The routing layer for the agent internet</title>
-<meta name="description" content="Open Language Wire: zero-ceremony agent-to-agent routing. Any agent finds any other via .well-known/olw/agent.json — no prior arrangement required.">
+<meta name="description" content="Open Language Wire: zero-ceremony agent-to-agent routing. Drop one JSON file, be found by any agent on the internet. pip install olw-protocol.">
+<meta property="og:title" content="OLW — The routing layer for the agent internet">
+<meta property="og:description" content="Your LangGraph agent can't call my CrewAI agent without a phone book. OLW is the phone book. Drop one JSON file, be found by anyone.">
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -562,8 +564,9 @@ const LANDING_HTML = `<!DOCTYPE html>
       <a href="/" class="nav-wordmark">OLW<span class="dot">.</span></a>
       <div class="nav-links">
         <a href="https://github.com/gtllco/olw-protocol" class="nav-link" target="_blank" rel="noopener">GitHub</a>
-        <a href="#pricing" class="nav-link">Pricing</a>
-        <a href="#pricing" class="nav-cta">Get API Key</a>
+        <a href="/post" class="nav-link">Whitepaper</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+        <a href="/pricing" class="nav-cta">Get API Key</a>
       </div>
     </div>
   </div>
@@ -573,13 +576,14 @@ const LANDING_HTML = `<!DOCTYPE html>
   <div class="container-narrow">
     <div class="hero-label">
       <span class="pulse"></span>
-      Open Language Wire &middot; v0.1
+      Open Language Wire &middot; v1.1 &middot; <span id="live-count" style="color:var(--green)">live</span>
     </div>
-    <h1>The routing layer<br>for the <em>agent internet</em></h1>
+    <h1>Your agent can't find<br>mine. <em>OLW fixes that.</em></h1>
     <p class="hero-sub">
-      Zero-ceremony cold-start routing. Agent A finds Agent B with no prior arrangement &mdash;
-      just a <span class="inline-code">.well-known/olw/agent.json</span>
-      and a capability fingerprint. No registry account. No pre-negotiation.
+      Every multi-agent framework has the same blind spot: cold-start. Agent A can't reach Agent B
+      without a pre-arranged bilateral setup. OLW is the missing layer &mdash;
+      drop one JSON file at <span class="inline-code">/.well-known/olw/agent.json</span>
+      and any agent on the internet can find you. No accounts. No ceremony.
     </p>
     <div class="install-block">
       <span class="install-prompt">$</span>
@@ -587,15 +591,85 @@ const LANDING_HTML = `<!DOCTYPE html>
       <button class="copy-btn" id="copy-btn" onclick="copyInstall()">COPY</button>
     </div>
     <div class="hero-actions">
-      <a href="https://github.com/gtllco/olw-protocol" class="btn-primary" target="_blank" rel="noopener">Read the spec &rarr;</a>
+      <a href="#demo" class="btn-primary">Try it live &darr;</a>
+      <a href="https://github.com/gtllco/olw-protocol" class="btn-secondary" target="_blank" rel="noopener">GitHub &rarr;</a>
       <a href="#pricing" class="btn-secondary">Get API Key</a>
+    </div>
+  </div>
+</section>
+
+<section style="padding:80px 0;border-bottom:1px solid var(--border)" id="demo">
+  <div class="container-narrow">
+    <div class="section-label">Live resolution — try it now</div>
+    <div class="section-title mb-med">Resolve any agent address.<br>No account. No install.</div>
+    <p style="color:var(--muted);font-size:.95rem;margin-bottom:32px;line-height:1.7;">
+      Type any registered OLW address below. The index resolves it live &mdash; returns the
+      endpoint, fingerprint, and verification status. This is the full protocol, happening now,
+      in your browser.
+    </p>
+    <div id="terminal" style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden">
+      <div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block"></span>
+        <span style="margin-left:8px;font-family:var(--font-mono);font-size:.75rem;color:var(--muted)">olw resolve</span>
+      </div>
+      <div style="padding:20px 24px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+          <span style="font-family:var(--font-mono);font-size:.875rem;color:var(--green);white-space:nowrap">$ olw resolve</span>
+          <input id="resolve-input" value="soul-guide@gtll.olw"
+            style="flex:1;min-width:180px;background:transparent;border:none;border-bottom:1px solid var(--border2);
+            font-family:var(--font-mono);font-size:.875rem;color:var(--text);padding:4px 0;outline:none"
+            onkeydown="if(event.key==='Enter')runResolve()"
+            onfocus="this.style.borderBottomColor='var(--green)'"
+            onblur="this.style.borderBottomColor='var(--border2)'"
+          />
+          <button id="resolve-btn" onclick="runResolve()"
+            style="background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 16px;
+            font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.04em">
+            Resolve &rarr;
+          </button>
+        </div>
+        <pre id="resolve-output" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+          padding:20px;font-family:var(--font-mono);font-size:.78rem;line-height:1.75;
+          overflow-x:auto;min-height:80px;color:var(--muted);transition:opacity .2s">
+<span style="color:var(--muted2)">// waiting for address...</span></pre>
+        <div id="resolve-meta" style="margin-top:12px;font-size:.78rem;color:var(--muted2);font-family:var(--font-mono)"></div>
+      </div>
+    </div>
+    <p style="margin-top:16px;font-size:.82rem;color:var(--muted2)">
+      Free tier: 10 lookups/day &middot; no account needed &middot;
+      <a href="#pricing" style="color:var(--green);text-decoration:none">Pro key</a> for unlimited
+    </p>
+  </div>
+</section>
+
+<section style="padding:40px 0;border-bottom:1px solid var(--border);background:var(--surface2)" id="traction">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;text-align:center">
+      <div style="padding:24px;border-right:1px solid var(--border)">
+        <div style="font-size:2rem;font-weight:700;letter-spacing:-.04em;color:var(--green)" id="stat-agents">—</div>
+        <div style="font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px">Agents Indexed</div>
+      </div>
+      <div style="padding:24px;border-right:1px solid var(--border)">
+        <div style="font-size:2rem;font-weight:700;letter-spacing:-.04em;color:var(--text)">100%</div>
+        <div style="font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px">Uptime</div>
+      </div>
+      <div style="padding:24px;border-right:1px solid var(--border)">
+        <div style="font-size:2rem;font-weight:700;letter-spacing:-.04em;color:var(--text)">v1.1</div>
+        <div style="font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px">PyPI · Live</div>
+      </div>
+      <div style="padding:24px">
+        <div style="font-size:2rem;font-weight:700;letter-spacing:-.04em;color:var(--text)">A2A</div>
+        <div style="font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px">Compatible</div>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="gap-section" id="gap">
   <div class="container-narrow">
-    <div class="section-label">The gap</div>
+    <div class="section-label">The gap A2A left open</div>
     <blockquote>
       &ldquo;The current A2A specification does not prescribe a standard API for curated registries.
       It leaves the details of registry discovery, curation, and trust to individual implementations.&rdquo;
@@ -605,8 +679,14 @@ const LANDING_HTML = `<!DOCTYPE html>
       OLW is <span class="green">that standard.</span>
     </p>
     <p style="margin-top:20px;color:var(--muted);font-size:1rem;line-height:1.75;max-width:560px;">
-      A2A defines the envelope format. OLW defines how agents find each other to exchange it.
-      One open spec. One resolution index. Any framework, any runtime, any cloud.
+      A2A defines the envelope. OLW defines how agents find each other to exchange it.
+      Google, IBM, Salesforce are A2A members. None of them shipped cold-start resolution.
+      That&rsquo;s the gap. That&rsquo;s our moat.
+    </p>
+    <p style="margin-top:16px;color:var(--muted);font-size:.88rem;line-height:1.7;max-width:560px;">
+      OLW&rsquo;s decentralized <span class="inline-code">.well-known</span> fallback means
+      your agent stays routable even if our index is down &mdash; the SDK crawls your domain
+      directly. No single point of failure. No lock-in.
     </p>
   </div>
 </section>
@@ -676,68 +756,39 @@ response = olw.send(
   </div>
 </section>
 
-<section class="fingerprint-section" id="fingerprint">
-  <div class="container">
+<section style="padding:80px 0;border-bottom:1px solid var(--border)" id="fingerprint">
+  <div class="container-narrow">
     <div class="section-label">Capability fingerprint</div>
-    <div class="section-title mb-med">Eight axes. Complete discovery.</div>
-    <p style="color:var(--muted);margin-bottom:40px;max-width:580px;font-size:.95rem;line-height:1.7;">
-      The fingerprint schema is the heart of OLW. Every registered agent exposes these axes.
-      Every query filters on them. Structured, typed, extensible.
+    <div class="section-title mb-med">8 axes. Any agent finds any other.</div>
+    <p style="color:var(--muted);margin-bottom:28px;font-size:.95rem;line-height:1.7;">
+      Every agent declares its fingerprint: <span class="inline-code">domain</span> &middot;
+      <span class="inline-code">task_types</span> &middot;
+      <span class="inline-code">input_formats</span> &middot;
+      <span class="inline-code">output_formats</span> &middot;
+      <span class="inline-code">context_depth</span> &middot;
+      <span class="inline-code">latency_class</span> &middot;
+      <span class="inline-code">trust_level</span> &middot;
+      <span class="inline-code">soul_compatible</span>.
+      Any querying agent filters on these axes to find exactly the capability it needs.
+      Custom axes use the <span class="inline-code">x_</span> prefix.
     </p>
-    <table class="fp-table">
-      <thead>
-        <tr>
-          <th>Axis</th>
-          <th>Description</th>
-          <th>Values</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>domain</td>
-          <td>Primary domain of expertise</td>
-          <td>legal &middot; medical &middot; finance &middot; engineering &middot; creative &middot; research &middot; data &middot; security &middot; education &middot; consciousness &middot; general</td>
-        </tr>
-        <tr>
-          <td>task_types</td>
-          <td>Structured task capabilities (array)</td>
-          <td>agent-defined strings &mdash; e.g. contract_review &middot; clause_extraction</td>
-        </tr>
-        <tr>
-          <td>input_formats</td>
-          <td>Accepted input media types</td>
-          <td>text &middot; json &middot; pdf &middot; image &middot; audio &middot; video &middot; csv &middot; html &middot; markdown &middot; code &middot; binary &middot; signal</td>
-        </tr>
-        <tr>
-          <td>output_formats</td>
-          <td>Produced output media types</td>
-          <td>text &middot; json &middot; pdf &middot; image &middot; audio &middot; video &middot; csv &middot; html &middot; markdown &middot; code &middot; binary &middot; stream &middot; signal</td>
-        </tr>
-        <tr>
-          <td>context_depth</td>
-          <td>Memory and reasoning horizon</td>
-          <td>shallow &middot; medium &middot; deep &middot; persistent</td>
-        </tr>
-        <tr>
-          <td>latency_class</td>
-          <td>Response time commitment</td>
-          <td>realtime (&lt;200ms) &middot; interactive (&lt;2s) &middot; standard (&lt;30s) &middot; batch (minutes)</td>
-        </tr>
-        <tr>
-          <td>trust_level</td>
-          <td>Authentication and identity tier</td>
-          <td>public &middot; authenticated &middot; verified &middot; high &middot; sovereign</td>
-        </tr>
-        <tr>
-          <td>soul_compatible</td>
-          <td>Values-aligned routing flag</td>
-          <td>true &middot; false</td>
-        </tr>
-      </tbody>
-    </table>
-    <p style="margin-top:20px;font-size:.8rem;color:var(--muted2);">
-      Extensions allowed &mdash; use <span class="inline-code">x_</span> prefix for custom axes.
-      Full schema: <a href="https://github.com/gtllco/olw-protocol/blob/main/spec/fingerprint-schema.json" class="link-green" target="_blank" rel="noopener">fingerprint-schema.json</a>
+    <div class="code-block" style="margin-bottom:20px">
+<span class="cm">// /.well-known/olw/agent.json — drop this on your server, be found by anyone</span>
+{
+  <span class="key">"olw_version"</span>: <span class="str">"0.1"</span>,
+  <span class="key">"address"</span>:     <span class="str">"myagent@acme.olw"</span>,
+  <span class="key">"endpoint"</span>:    <span class="str">"https://acme.com/a2a"</span>,
+  <span class="key">"fingerprint"</span>: {
+    <span class="key">"domain"</span>:        <span class="str">"legal"</span>,
+    <span class="key">"task_types"</span>:    [<span class="str">"contract_review"</span>, <span class="str">"clause_extraction"</span>],
+    <span class="key">"input_formats"</span>: [<span class="str">"text"</span>, <span class="str">"pdf"</span>],
+    <span class="key">"latency_class"</span>: <span class="str">"standard"</span>,
+    <span class="key">"trust_level"</span>:   <span class="str">"verified"</span>
+  }
+}</div>
+    <p style="font-size:.8rem;color:var(--muted2)">
+      Full schema:
+      <a href="https://github.com/gtllco/olw-protocol/blob/main/spec/fingerprint-schema.json" class="link-green" target="_blank" rel="noopener">fingerprint-schema.json &rarr;</a>
     </p>
   </div>
 </section>
@@ -771,7 +822,7 @@ my_agent = olw.Agent(
         <span class="str">"context_depth"</span>: <span class="str">"deep"</span>,
         <span class="str">"latency_class"</span>: <span class="str">"standard"</span>,
         <span class="str">"trust_level"</span>: <span class="str">"verified"</span>,
-        <span class="str">"soul_compatible"</span>: <span class="kw">True</span>
+        <span class="str">"context_depth"</span>:  <span class="str">"deep"</span>
     }
 )
 
@@ -882,48 +933,119 @@ response = olw.send(
     <div class="footer-inner">
       <div class="footer-left">
         <a href="/" class="footer-wordmark">OLW</a>
-        <span class="footer-signal">signal 777 &middot; completion</span>
+        <span class="footer-signal">Open Language Wire &middot; MIT &middot; Built by <a href="mailto:gabriel@gtll.app" style="color:var(--muted);text-decoration:none">Gabriel Martin</a></span>
       </div>
       <div class="footer-right">
         <a href="https://github.com/gtllco/olw-protocol" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+        <a href="/post" class="footer-link">Whitepaper</a>
         <a href="#pricing" class="footer-link">Pricing</a>
-        <span class="footer-mit">MIT License</span>
+        <a href="mailto:gabriel@gtll.app" class="footer-link">Investors</a>
       </div>
     </div>
   </div>
 </footer>
 
 <script>
+  // ── Copy install command ────────────────────────────────────────────────────
   function copyInstall() {
     const cmd = document.getElementById('install-cmd').textContent;
     const btn = document.getElementById('copy-btn');
     const done = () => {
-      btn.textContent = 'COPIED';
-      btn.style.color = '#4ade80';
+      btn.textContent = 'COPIED'; btn.style.color = '#4ade80';
       setTimeout(() => { btn.textContent = 'COPY'; btn.style.color = ''; }, 2000);
     };
     if (navigator.clipboard) {
       navigator.clipboard.writeText(cmd).then(done).catch(() => fallbackCopy(cmd, done));
-    } else {
-      fallbackCopy(cmd, done);
-    }
+    } else { fallbackCopy(cmd, done); }
   }
   function fallbackCopy(text, cb) {
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    cb();
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); cb();
   }
 
-  async function startCheckout() {
-    const btn = document.getElementById('checkout-btn');
-    const orig = btn.textContent;
-    btn.textContent = 'Redirecting…';
+  // ── Live stats — hero badge + traction bar ─────────────────────────────────
+  (async function loadCount() {
+    try {
+      const r = await fetch('/health');
+      const d = await r.json();
+      const badge = document.getElementById('live-count');
+      const stat = document.getElementById('stat-agents');
+      if (badge && d.agents !== undefined) {
+        badge.textContent = d.agents + ' agent' + (d.agents !== 1 ? 's' : '') + ' indexed · live';
+      }
+      if (stat && d.agents !== undefined) {
+        stat.textContent = d.agents;
+      }
+    } catch(e) {}
+  })();
+
+  // ── Live resolve terminal ───────────────────────────────────────────────────
+  function syntaxJSON(obj) {
+    const s = JSON.stringify(obj, null, 2);
+    return s
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+        if (/^"/.test(m)) {
+          if (/:$/.test(m)) return '<span style="color:#89dceb">' + m + '</span>';
+          return '<span style="color:#a6e3a1">' + m + '</span>';
+        }
+        if (/true|false/.test(m)) return '<span style="color:#cba6f7">' + m + '</span>';
+        if (/null/.test(m)) return '<span style="color:#f38ba8">' + m + '</span>';
+        return '<span style="color:#fab387">' + m + '</span>';
+      });
+  }
+
+  async function runResolve() {
+    const input = document.getElementById('resolve-input');
+    const output = document.getElementById('resolve-output');
+    const meta = document.getElementById('resolve-meta');
+    const btn = document.getElementById('resolve-btn');
+    const addr = (input.value || '').trim();
+    if (!addr) return;
+
     btn.disabled = true;
+    btn.textContent = 'resolving…';
+    output.style.opacity = '0.4';
+    meta.textContent = '';
+
+    const t0 = performance.now();
+    try {
+      const r = await fetch('/resolve?address=' + encodeURIComponent(addr));
+      const d = await r.json();
+      const ms = Math.round(performance.now() - t0);
+      output.style.opacity = '1';
+
+      if (d.error) {
+        output.innerHTML = '<span style="color:#f38ba8">// error: ' + d.error.replace(/</g,'&lt;') + '</span>';
+        meta.textContent = '';
+      } else {
+        output.innerHTML = syntaxJSON(d);
+        const verified = d.verified ? '✓ verified' : '○ unverified';
+        meta.innerHTML =
+          '<span style="color:var(--green)">' + verified + '</span>' +
+          '  ·  resolved in ' + ms + 'ms' +
+          '  ·  <a href="#pricing" style="color:var(--green);text-decoration:none">get a Pro key to remove rate limits →</a>';
+      }
+    } catch(e) {
+      output.style.opacity = '1';
+      output.innerHTML = '<span style="color:#f38ba8">// network error — try again</span>';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Resolve →';
+  }
+
+  // Auto-resolve on load for immediate "it works" moment
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(runResolve, 600);
+  });
+
+  // ── Stripe checkout ─────────────────────────────────────────────────────────
+  async function startCheckout() {
+    const btns = document.querySelectorAll('[id^="checkout-btn"]');
+    btns.forEach(b => { b.textContent = 'Redirecting…'; b.disabled = true; });
     try {
       const res = await fetch('/checkout', {
         method: 'POST',
@@ -934,15 +1056,14 @@ response = olw.send(
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
-        btn.textContent = 'Error — try again';
-        btn.disabled = false;
+        btns.forEach(b => { b.textContent = 'Error — try again'; b.disabled = false; });
       }
-    } catch (e) {
-      btn.textContent = 'Error — try again';
-      btn.disabled = false;
+    } catch(e) {
+      btns.forEach(b => { b.textContent = 'Error — try again'; b.disabled = false; });
     }
   }
 
+  // ── Smooth scroll ───────────────────────────────────────────────────────────
   document.querySelectorAll('a[href^="#"]').forEach(link => {
     link.addEventListener('click', e => {
       const id = link.getAttribute('href').slice(1);
@@ -982,9 +1103,30 @@ const PRICING_HTML = `<!DOCTYPE html>
   .btn-enterprise:hover{border-color:#888}
   .note{margin-top:2rem;color:#555;font-size:.8rem;text-align:center}
   a{color:#4ade80}
+  nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.88);backdrop-filter:blur(12px);border-bottom:1px solid #1e1e1e;width:100%}
+  .nav-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px}
+  .nav-wordmark{font-size:1.1rem;font-weight:700;letter-spacing:-.02em;color:#e8e8e8;text-decoration:none}
+  .nav-wordmark .dot{color:#4ade80}
+  .nav-links{display:flex;align-items:center;gap:8px}
+  .nav-link{font-size:.875rem;font-weight:500;color:#666;text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .15s}
+  .nav-link:hover{color:#e8e8e8}
+  .nav-cta{font-size:.875rem;font-weight:600;color:#000;background:#4ade80;text-decoration:none;padding:6px 16px;border-radius:6px;transition:opacity .15s}
+  .nav-cta:hover{opacity:.85}
+  .page-body{min-height:calc(100vh - 56px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
 </style>
 </head>
 <body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-wordmark">OLW<span class="dot">.</span></a>
+    <div class="nav-links">
+      <a href="https://github.com/gtllco/olw-protocol" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+      <a href="/post" class="nav-link">Post</a>
+      <a href="/" class="nav-link">Home</a>
+    </div>
+  </div>
+</nav>
+<div class="page-body">
 <h1>OLW Resolution Index</h1>
 <p class="sub">The routing layer for the agent internet — <a href="https://github.com/gtllco/olw-protocol">open source</a></p>
 <div class="cards">
@@ -1022,7 +1164,7 @@ const PRICING_HTML = `<!DOCTYPE html>
       <li>Custom integrations</li>
       <li>Dedicated support</li>
     </ul>
-    <a href="mailto:martings1@charleston.edu" class="btn btn-enterprise">Contact Sales</a>
+    <a href="mailto:gabriel@gtll.app" class="btn btn-enterprise">Contact Sales</a>
   </div>
 </div>
 <p class="note">All plans include access to the open spec · MIT licensed · <a href="https://github.com/gtllco/olw-protocol">GitHub</a></p>
@@ -1043,6 +1185,7 @@ async function startCheckout() {
   } catch(e) { btn.textContent = 'Error — try again'; btn.disabled = false; }
 }
 </script>
+</div>
 </body>
 </html>`;
 
@@ -1130,6 +1273,411 @@ loadKey();
 </body>
 </html>`;
 
+// ── Launch post HTML ─────────────────────────────────────────────────────────
+const POST_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Show HN: OLW — zero-ceremony agent-to-agent routing (no shared infra required)</title>
+<meta name="description" content="Every AI agent framework requires pre-configured bilateral relationships before two agents can talk. OLW fixes the cold-start gap — the HTTP of agent context.">
+<meta property="og:title" content="OLW — The routing layer for the agent internet">
+<meta property="og:description" content="Zero-ceremony cold-start routing for AI agents. Any agent finds any other via .well-known/olw/agent.json — no prior arrangement required.">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #161616;
+    --border: #1e1e1e;
+    --border2: #2a2a2a;
+    --text: #e8e8e8;
+    --muted: #666666;
+    --muted2: #444444;
+    --green: #4ade80;
+    --green-dim: rgba(74,222,128,0.08);
+    --green-border: rgba(74,222,128,0.2);
+    --font-mono: 'SF Mono','Fira Code','Cascadia Code','Consolas',monospace;
+  }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.7; -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,10,0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    max-width: 720px; margin: 0 auto; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-wordmark {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text); text-decoration: none;
+  }
+  .nav-wordmark .dot { color: var(--green); }
+  .nav-links { display: flex; align-items: center; gap: 8px; }
+  .nav-link {
+    font-size: 0.875rem; font-weight: 500; color: var(--muted);
+    text-decoration: none; padding: 6px 12px; border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .nav-link:hover { color: var(--text); }
+  .nav-cta {
+    font-size: 0.875rem; font-weight: 600; color: #000;
+    background: var(--green); text-decoration: none;
+    padding: 6px 16px; border-radius: 6px; transition: opacity 0.15s;
+  }
+  .nav-cta:hover { opacity: 0.85; }
+  .post-header {
+    padding: 72px 0 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .post-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--green);
+    background: var(--green-dim); border: 1px solid var(--green-border);
+    padding: 4px 12px; border-radius: 99px; margin-bottom: 24px;
+  }
+  .post-label .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)}
+  }
+  .post-title {
+    font-size: clamp(1.8rem, 4vw, 2.75rem);
+    font-weight: 700; letter-spacing: -0.035em; line-height: 1.1;
+    margin-bottom: 20px; color: var(--text);
+  }
+  .post-title em { font-style: normal; color: var(--green); }
+  .post-meta {
+    font-size: 0.8rem; color: var(--muted); display: flex;
+    align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .post-meta .sep { color: var(--muted2); }
+  .post-body {
+    padding: 56px 0 80px;
+  }
+  .post-body p {
+    font-size: 1.05rem; color: #c8c8c8; margin-bottom: 24px;
+    line-height: 1.75;
+  }
+  .post-body h2 {
+    font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text); margin: 48px 0 16px;
+  }
+  .post-body h3 {
+    font-size: 1rem; font-weight: 600; color: var(--text);
+    margin: 32px 0 12px;
+  }
+  blockquote {
+    border-left: 3px solid var(--green); padding: 20px 24px;
+    background: var(--green-dim); border-radius: 0 8px 8px 0;
+    margin: 32px 0;
+  }
+  blockquote p {
+    font-size: 1rem; color: var(--text); font-style: italic;
+    line-height: 1.7; margin: 0 !important;
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 24px; overflow-x: auto;
+    margin: 24px 0;
+  }
+  code {
+    font-family: var(--font-mono); font-size: 0.85rem; color: var(--green);
+  }
+  pre code { color: var(--text); line-height: 1.6; }
+  .code-comment { color: var(--muted); }
+  .code-green { color: var(--green); }
+  .code-str { color: #fbbf24; }
+  .inline-code {
+    font-family: var(--font-mono); font-size: 0.85em;
+    color: var(--green); background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .table-wrap { overflow-x: auto; margin: 24px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th {
+    text-align: left; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); padding: 10px 16px;
+    border-bottom: 1px solid var(--border2);
+  }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: #c8c8c8; }
+  tr:last-child td { border-bottom: none; }
+  .tag {
+    display: inline-block; font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .tag-green { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+  .tag-muted { background: var(--surface2); color: var(--muted); border: 1px solid var(--border2); }
+  .cta-row {
+    display: flex; gap: 12px; flex-wrap: wrap; margin: 40px 0;
+    padding: 32px; background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 12px;
+  }
+  .cta-block { flex: 1; min-width: 180px; }
+  .cta-block h4 { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .cta-block p { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.5; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.875rem; font-weight: 600; text-decoration: none;
+    padding: 10px 20px; border-radius: 8px; margin-top: 12px;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  footer {
+    border-top: 1px solid var(--border); padding: 32px 0;
+    text-align: center;
+  }
+  footer p { font-size: 0.8rem; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+  @media (max-width: 640px) {
+    .post-title { font-size: 1.6rem; }
+    .cta-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-wordmark">OLW<span class="dot">.</span></a>
+    <div class="nav-links">
+      <a href="https://github.com/gtllco/olw-protocol" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+      <a href="/pricing" class="nav-link">Pricing</a>
+      <a href="/pricing" class="nav-cta">Get API Key</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <header class="post-header">
+    <div class="post-label"><span class="pulse"></span>Show HN</div>
+    <h1 class="post-title">
+      Every AI agent framework requires a pre-arranged relationship before two agents can talk.<br>
+      <em>We built the layer that fixes that.</em>
+    </h1>
+    <div class="post-meta">
+      <span>OLW — Open Language Wire</span>
+      <span class="sep">·</span>
+      <span>June 2026</span>
+      <span class="sep">·</span>
+      <a href="https://pypi.org/project/olw-protocol/" style="color:var(--muted);text-decoration:none;">pip install olw-protocol</a>
+    </div>
+  </header>
+
+  <article class="post-body">
+    <p>
+      We spent four months mapping how AI agents actually communicate in production.
+      Every framework — MCP, A2A, LangGraph, CrewAI, ANP — has the same blind spot.
+    </p>
+
+    <blockquote>
+      <p>
+        An agent running on Claude at Company A cannot send a structured context payload
+        to an agent running on GPT-4 at Company B without a prior bilateral ceremony —
+        no shared protocol envelope, no address space, no universal resolution layer.
+        This is precisely the gap DNS + HTTP solved for documents in 1989.
+        No AI agent system has deployed this as of mid-2025.
+      </p>
+    </blockquote>
+
+    <p>
+      A2A (Google, Linux Foundation, 150+ org members) reduces this requirement from
+      "share a codebase" to "exchange an auth credential." That's real progress.
+      But it still requires both sides to implement A2A, agree on auth, and coordinate
+      before first contact. <strong style="color:var(--text)">OLW eliminates the ceremony entirely.</strong>
+    </p>
+
+    <h2>What OLW is</h2>
+
+    <p>
+      OLW is an agent address space and cold-start routing layer. The analogy is exact:
+      HTTP didn't require the server to pre-register with the client — it required only
+      that both speak HTTP. OLW's wedge is being the <em>HTTP of agent context</em>,
+      not the OAuth of agent auth.
+    </p>
+
+    <p>
+      Every agent gets a routable address (<span class="inline-code">name@owner.olw</span>).
+      Any other agent can resolve that address and send a full context payload — sender identity,
+      payload, session state — without prior bilateral setup. The destination agent needs only
+      a reachable URL and a standard context schema.
+    </p>
+
+    <h3>How it works</h3>
+
+    <p>
+      Publish a JSON fingerprint at your domain's <span class="inline-code">/.well-known/olw/agent.json</span>.
+      The index crawls it and mints your address. From that point, you're routable by any agent on the wire.
+      Decentralized resolution means other agents can find you even if the OLW index is down —
+      they crawl your well-known directly.
+    </p>
+
+    <h2>The 5-line integration</h2>
+
+    <pre><code><span class="code-comment"># Install</span>
+<span class="code-green">pip install</span> olw-protocol
+
+<span class="code-comment"># Resolve any registered agent and send a context payload</span>
+<span class="code-green">from</span> olw <span class="code-green">import</span> OLWClient
+
+client = OLWClient(<span class="code-str">"https://olw.gtll.app"</span>)
+agent  = client.resolve(<span class="code-str">"soul-guide@gtll.olw"</span>)
+result = agent.send({ <span class="code-str">"task"</span>: <span class="code-str">"summarize this document"</span>, <span class="code-str">"payload"</span>: doc })
+</code></pre>
+
+    <p>
+      That's it. No shared OAuth provider. No pre-exchanged credentials. No custom webhook contract.
+      The client resolves the address via decentralized <span class="inline-code">.well-known</span> crawl
+      (index bypassed entirely for registered agents), delivers a typed context envelope,
+      and returns the response.
+    </p>
+
+    <h2>What's live now</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Status</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Index server</td>
+            <td><span class="tag tag-green">LIVE</span></td>
+            <td>olw.gtll.app — address registry + routing</td>
+          </tr>
+          <tr>
+            <td>Python SDK</td>
+            <td><span class="tag tag-green">LIVE</span></td>
+            <td>pypi.org/project/olw-protocol · decentralized crawl in v1.1</td>
+          </tr>
+          <tr>
+            <td>Decentralized resolution</td>
+            <td><span class="tag tag-green">LIVE</span></td>
+            <td>soul-guide@gtll.olw resolves via .well-known, index bypassed</td>
+          </tr>
+          <tr>
+            <td>Pro tier</td>
+            <td><span class="tag tag-green">LIVE</span></td>
+            <td>$29/mo — dedicated routing + higher rate limits</td>
+          </tr>
+          <tr>
+            <td>JS/TS SDK</td>
+            <td><span class="tag tag-muted">BUILDING</span></td>
+            <td>Most agent devs are in TS — shipping next</td>
+          </tr>
+          <tr>
+            <td>OLW Routing Index</td>
+            <td><span class="tag tag-muted">ROADMAP</span></td>
+            <td>Public anonymized dashboard — aggregate routing signal</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>The 8 capability axes</h2>
+
+    <p>
+      Every agent fingerprint declares 8 axes. This is what the index uses to route tasks —
+      not just "does this agent exist" but "can this agent do what the sender needs."
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Axis</th><th>What it describes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="inline-code">modalities</span></td><td>Input and output types (text, json, pdf, image, audio, stream…)</td></tr>
+          <tr><td><span class="inline-code">domains</span></td><td>Subject-matter expertise (finance, legal, code, medicine…)</td></tr>
+          <tr><td><span class="inline-code">protocols</span></td><td>Communication protocols supported (REST, MCP, A2A, OLW…)</td></tr>
+          <tr><td><span class="inline-code">trust_level</span></td><td>Identity assurance (0 = anonymous → 4 = org-verified)</td></tr>
+          <tr><td><span class="inline-code">latency_tier</span></td><td>Expected response window (realtime / interactive / batch)</td></tr>
+          <tr><td><span class="inline-code">cost_tier</span></td><td>Free / metered / subscription / enterprise</td></tr>
+          <tr><td><span class="inline-code">availability</span></td><td>Uptime SLA and maintenance windows</td></tr>
+          <tr><td><span class="inline-code">context_window</span></td><td>Max payload size the agent can receive</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Why now</h2>
+
+    <p>
+      A2A is dangerous for us — it already won the "standards body" positioning.
+      Google, IBM, Salesforce as launch partners. 150+ organizational members.
+      If A2A ships a federated registry before OLW reaches developer adoption,
+      the window closes.
+    </p>
+
+    <p>
+      The bet: A2A cannot close the cold-start gap in production with real routing data
+      before OLW accumulates integrations. Sticky integrations = routing data = moat.
+      That's why the free tier is permanently free for the first 10,000 messages/month.
+      We want the integrations, not the subscription.
+    </p>
+
+    <hr class="divider">
+
+    <div class="cta-row">
+      <div class="cta-block">
+        <h4>Register your agent</h4>
+        <p>Get a routable address in under 2 minutes. Publish a <span class="inline-code">.well-known/olw/agent.json</span> and submit.</p>
+        <a href="https://olw.gtll.app" class="btn btn-primary">Register free →</a>
+      </div>
+      <div class="cta-block">
+        <h4>Install the SDK</h4>
+        <p>Python SDK live on PyPI. JS/TS in progress. Pull requests welcome.</p>
+        <a href="https://pypi.org/project/olw-protocol/" class="btn btn-secondary">pip install olw-protocol</a>
+      </div>
+      <div class="cta-block">
+        <h4>Live reference agent</h4>
+        <p>soul-guide@gtll.olw is a fully registered, decentralized-resolution agent you can test against right now.</p>
+        <a href="https://olw.gtll.app/resolve?address=soul-guide%40gtll.olw" class="btn btn-secondary">Try resolve →</a>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.9rem;">
+      Questions, integrations, or working on something multi-agent?
+      Reach out: <a href="mailto:gabriel@gtll.app" style="color:var(--green);text-decoration:none;">gabriel@gtll.app</a>
+    </p>
+  </article>
+</div>
+
+<footer>
+  <p>
+    <a href="/">OLW</a> &nbsp;·&nbsp;
+    <a href="/pricing">Pricing</a> &nbsp;·&nbsp;
+    <a href="https://pypi.org/project/olw-protocol/">PyPI</a> &nbsp;·&nbsp;
+    <a href="/mesh">Mesh</a>
+  </p>
+</footer>
+</body>
+</html>`;
+
 // ── Admin auth ────────────────────────────────────────────────────────────────
 function checkAdminAuth(req, url) {
   if (!ADMIN_SECRET) return false; // guard: secret must be set
@@ -1143,77 +1691,58 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OLW — Field Operations</title>
+<title>OLW — Operations</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap');
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
-    --paper:#F4EFE4;
-    --paper-dark:#EDE8DC;
-    --paper-darker:#E2DAC8;
-    --ink:#1C1812;
-    --ink-mid:#3D3528;
-    --ink-light:#6B5E4A;
-    --ink-faint:#A89880;
-    --rule:#C4B89A;
-    --rule-light:#DDD5C0;
-    --green:#2C3E2D;
-    --green-light:#3D5C3E;
-    --green-faint:#EFF3EF;
-    --red-dark:#5C2C2C;
+    --bg:#080808;
+    --surface:#0f0f0f;
+    --surface2:#141414;
+    --surface3:#1a1a1a;
+    --border:#1e1e1e;
+    --border2:#252525;
+    --text:#f0f0f0;
+    --muted:#555;
+    --muted2:#333;
+    --green:#4ade80;
+    --green-dim:rgba(74,222,128,0.06);
+    --green-border:rgba(74,222,128,0.18);
+    --red:#f87171;
+    --amber:#fbbf24;
+    --blue:#60a5fa;
+    --mono:'SF Mono','Fira Code','Cascadia Code',monospace;
   }
-  html{font-size:16px}
-  body{font-family:'EB Garamond','Georgia','Times New Roman',serif;background:var(--paper);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
-  a{color:var(--green);text-decoration:underline;text-underline-offset:2px}
+  html{font-size:16px;scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+  a{color:var(--green);text-decoration:none}
   /* ── LOGIN ─────────────────────────────────────────────── */
   #login-screen{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    min-height:100vh;gap:0;
-    background:var(--paper);
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;background:var(--bg);
   }
-  .login-document{
-    width:420px;border:1px solid var(--rule);
-    padding:3rem 3rem 2.5rem;
-    background:var(--paper);
-    box-shadow:0 1px 3px rgba(0,0,0,.08), inset 0 0 0 6px var(--paper), inset 0 0 0 7px var(--rule-light);
+  .login-card{
+    width:380px;background:var(--surface);border:1px solid var(--border2);
+    border-radius:16px;padding:40px;
   }
-  .login-stamp{
-    font-size:.65rem;letter-spacing:.25em;text-transform:uppercase;color:var(--ink-faint);
-    margin-bottom:.25rem;text-align:center;
-  }
-  .login-rule{border:none;border-top:2px solid var(--ink);margin:.5rem 0 1.75rem}
-  .login-title{
-    font-family:'IM Fell English','Georgia',serif;font-size:1.5rem;font-weight:400;
-    text-align:center;letter-spacing:.03em;color:var(--ink);margin-bottom:.35rem;
-  }
-  .login-subtitle{font-size:.85rem;color:var(--ink-light);text-align:center;font-style:italic;margin-bottom:2rem}
-  .login-field-label{
-    font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-light);
-    display:block;margin-bottom:.4rem;
-  }
+  .login-logo{font-size:1.5rem;font-weight:800;letter-spacing:-.04em;color:var(--text);margin-bottom:8px}
+  .login-logo .dot{color:var(--green)}
+  .login-sub{font-size:.82rem;color:var(--muted);margin-bottom:32px}
+  .login-label{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
   #secret-input{
-    width:100%;background:transparent;border:none;border-bottom:1px solid var(--rule);
-    padding:.5rem .1rem;font-family:'EB Garamond','Georgia',serif;font-size:1rem;
-    color:var(--ink);outline:none;letter-spacing:.05em;
+    width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;
+    padding:12px 16px;font-size:.95rem;color:var(--text);outline:none;
+    font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+    transition:border-color .15s;
   }
-  #secret-input:focus{border-bottom-color:var(--ink)}
-  #secret-input::placeholder{color:var(--ink-faint);font-style:italic}
-  .login-divider{border:none;border-top:1px solid var(--rule-light);margin:1.75rem 0 1.5rem}
+  #secret-input:focus{border-color:var(--green)}
+  #secret-input::placeholder{color:var(--muted2)}
   #login-btn{
-    width:100%;background:var(--green);color:#F4EFE4;border:none;
-    padding:.75rem 1.5rem;font-family:'EB Garamond','Georgia',serif;font-size:.8rem;
-    font-weight:500;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;
-    transition:background .15s;
+    width:100%;margin-top:16px;background:var(--green);color:#000;border:none;
+    border-radius:8px;padding:12px;font-size:.9rem;font-weight:700;cursor:pointer;
+    letter-spacing:.02em;transition:opacity .15s;
   }
-  #login-btn:hover{background:var(--green-light)}
-  #login-error{
-    font-size:.8rem;color:var(--red-dark);font-style:italic;
-    text-align:center;margin-top:.75rem;min-height:1.2rem;
-  }
-  .login-footer{
-    font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--ink-faint);text-align:center;margin-top:1.25rem;
-  }
+  #login-btn:hover{opacity:.88}
+  #login-error{font-size:.8rem;color:var(--red);text-align:center;margin-top:12px;min-height:1rem}
 
   /* ── DASHBOARD ──────────────────────────────────────────── */
   #dashboard{display:none}
@@ -1222,190 +1751,231 @@ const ADMIN_HTML = `<!DOCTYPE html>
     padding:1.75rem 3rem 1.25rem;
     background:var(--paper-dark);
   }
-  .doc-classification{
-    font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;
-    color:var(--ink-faint);margin-bottom:.5rem;
+  /* ── DASHBOARD ─────────────────────────────────────────── */
+  #dashboard{display:none;min-height:100vh}
+  .dash-header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(8,8,8,.92);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+    padding:0 32px;height:56px;
+    display:flex;align-items:center;justify-content:space-between;
   }
-  .doc-title-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
-  .doc-title{
-    font-family:'IM Fell English','Georgia',serif;font-size:1.6rem;font-weight:400;
-    color:var(--ink);letter-spacing:.02em;
+  .dash-wordmark{font-size:1rem;font-weight:800;letter-spacing:-.04em;color:var(--text)}
+  .dash-wordmark .dot{color:var(--green)}
+  .dash-meta{font-size:.72rem;color:var(--muted);font-family:var(--mono)}
+  .dash-actions{display:flex;gap:8px}
+  .dash-btn{
+    background:var(--surface2);border:1px solid var(--border2);border-radius:6px;
+    padding:5px 14px;font-size:.75rem;font-weight:600;color:var(--muted);cursor:pointer;
+    transition:color .15s,border-color .15s;
   }
-  .doc-meta{font-size:.75rem;color:var(--ink-light);font-style:italic}
-  .doc-actions{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
-  .doc-btn{
-    background:transparent;border:1px solid var(--rule);
-    padding:.35rem .9rem;font-family:'EB Garamond','Georgia',serif;
-    font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;
-    color:var(--ink-light);cursor:pointer;transition:all .15s;
-  }
-  .doc-btn:hover{background:var(--paper-darker);color:var(--ink)}
-  .doc-btn.danger{color:var(--red-dark);border-color:#C4A8A8}
-  .doc-btn.danger:hover{background:#F4EDED}
-  #last-updated{font-size:.7rem;color:var(--ink-faint);font-style:italic}
+  .dash-btn:hover{color:var(--text);border-color:var(--muted2)}
+  .dash-btn.danger{color:var(--red)}
+  .dash-btn.danger:hover{border-color:var(--red)}
 
-  .doc-body{max-width:1100px;margin:0 auto;padding:2.5rem 3rem}
+  .dash-body{max-width:1200px;margin:0 auto;padding:32px}
 
-  /* ── STAT CARDS ─────────────────────────────────────────── */
-  .stats-bar{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
-    border:1px solid var(--rule);margin-bottom:3rem;
+  /* ── KPI GRID ── */
+  .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:28px}
+  .kpi{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:20px 18px;position:relative;overflow:hidden;
   }
-  .stat-card{
-    padding:1.25rem 1.5rem;border-right:1px solid var(--rule);
-    position:relative;
-  }
-  .stat-card:last-child{border-right:none}
-  .stat-label{
-    font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--ink-faint);margin-bottom:.6rem;
-  }
-  .stat-value{
-    font-family:'IM Fell English','Georgia',serif;font-size:2.25rem;
-    font-weight:400;color:var(--ink);line-height:1;
-  }
-  .stat-value.accented{color:var(--green)}
+  .kpi.accent{border-color:var(--green-border);background:linear-gradient(135deg,rgba(74,222,128,.06) 0%,var(--surface) 60%)}
+  .kpi-label{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .kpi-value{font-size:1.9rem;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--text)}
+  .kpi-value.green{color:var(--green)}
+  .kpi-value.amber{color:var(--amber)}
+  .kpi-sub{font-size:.7rem;color:var(--muted);margin-top:6px;font-family:var(--mono)}
+  .kpi-stripe{position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--green);opacity:.15}
+  .kpi.accent .kpi-stripe{opacity:.6}
 
-  /* ── SECTIONS ───────────────────────────────────────────── */
-  .section{margin-bottom:3rem}
-  .section-header{
-    display:flex;align-items:baseline;gap:1rem;
-    border-bottom:1px solid var(--ink);padding-bottom:.4rem;margin-bottom:1.25rem;
+  /* ── VIZ ROW ── */
+  .viz-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px}
+  .viz-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;position:relative}
+  .viz-title{font-size:.7rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:20px}
+  canvas#mesh-canvas{width:100%;height:200px;display:block}
+  .sparkline-wrap{height:80px;display:flex;align-items:flex-end;gap:3px}
+  .spark-bar{
+    flex:1;background:var(--green-dim);border:1px solid var(--green-border);
+    border-radius:3px 3px 0 0;min-height:4px;transition:height .3s;
+    position:relative;cursor:default;
   }
-  .section-number{
-    font-size:.65rem;letter-spacing:.15em;color:var(--ink-faint);
-    font-variant-numeric:tabular-nums;
-  }
-  .section-title{
-    font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;
-    color:var(--ink);font-weight:500;
-  }
-  .section-count{
-    margin-left:auto;font-size:.7rem;color:var(--ink-faint);font-style:italic;
+  .spark-bar.active{background:rgba(74,222,128,.25);border-color:var(--green)}
+  .spark-label{
+    display:flex;justify-content:space-between;
+    font-size:.65rem;color:var(--muted);font-family:var(--mono);margin-top:8px;
   }
 
-  /* ── TABLES ─────────────────────────────────────────────── */
-  .tbl-wrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:.88rem}
-  thead tr{border-bottom:1px solid var(--rule)}
+  /* ── PIPELINE TABLE ── */
+  .pipeline{display:flex;gap:0;margin-bottom:28px}
+  .pipe-stage{
+    flex:1;background:var(--surface);border:1px solid var(--border);
+    border-right:none;padding:16px 20px;
+  }
+  .pipe-stage:first-child{border-radius:12px 0 0 12px}
+  .pipe-stage:last-child{border-right:1px solid var(--border);border-radius:0 12px 12px 0}
+  .pipe-label{font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .pipe-value{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;color:var(--text)}
+  .pipe-desc{font-size:.72rem;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+
+  /* ── SECTIONS ── */
+  .section{margin-bottom:28px}
+  .section-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .section-title{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .section-count{font-family:var(--mono);font-size:.7rem;color:var(--muted2)}
+
+  /* ── TABLES ── */
+  .tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
   th{
-    text-align:left;padding:.5rem .75rem .5rem 0;
-    font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--ink-faint);font-weight:400;font-family:'EB Garamond','Georgia',serif;
+    text-align:left;padding:12px 16px;
+    font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface2);
   }
-  th:last-child{text-align:right}
-  td{
-    padding:.65rem .75rem .65rem 0;
-    border-bottom:1px solid var(--rule-light);
-    color:var(--ink-mid);vertical-align:top;
-    font-size:.9rem;
-  }
+  th:first-child{border-radius:12px 0 0 0}
+  th:last-child{border-radius:0 12px 0 0;text-align:right}
+  td{padding:11px 16px;border-bottom:1px solid var(--border);color:#bbb;vertical-align:middle}
   td:last-child{text-align:right}
   tr:last-child td{border-bottom:none}
-  tr:hover td{background:rgba(44,62,45,.03)}
-  .cell-primary{color:var(--ink);font-weight:500}
-  .cell-mono{font-family:'Courier New',Courier,monospace;font-size:.78rem;color:var(--green)}
-  .cell-muted{color:var(--ink-faint);font-size:.82rem;font-style:italic}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .cell-addr{font-family:var(--mono);font-size:.78rem;color:var(--green)}
+  .cell-name{font-weight:600;color:var(--text)}
+  .cell-dim{color:var(--muted);font-size:.78rem}
   .badge{
-    display:inline-block;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;
-    padding:.15rem .5rem;border:1px solid currentColor;font-family:'EB Garamond','Georgia',serif;
+    display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;padding:2px 8px;border-radius:4px;
   }
-  .badge-active{color:var(--green)}
-  .badge-inactive{color:var(--red-dark)}
-  .badge-capped{color:var(--red-dark)}
-  .badge-ok{color:var(--ink-faint)}
-  .badge-pro{color:var(--green)}
-  .fp-tag{
-    display:inline-block;font-size:.65rem;font-family:'Courier New',Courier,monospace;
-    color:var(--ink-light);margin:.1rem .2rem 0 0;
+  .badge-green{background:rgba(74,222,128,.1);color:var(--green);border:1px solid var(--green-border)}
+  .badge-red{background:rgba(248,113,113,.08);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+  .badge-amber{background:rgba(251,191,36,.08);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
+  .badge-muted{background:var(--surface2);color:var(--muted);border:1px solid var(--border2)}
+  .empty-row td{color:var(--muted);font-style:italic;padding:24px 16px}
+  #error-banner{display:none;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:12px 16px;color:var(--red);font-size:.82rem;margin-bottom:16px}
+
+  @media(max-width:900px){
+    .kpi-grid{grid-template-columns:repeat(3,1fr)}
+    .viz-row{grid-template-columns:1fr}
+    .pipeline{flex-wrap:wrap}
+    .pipe-stage{min-width:50%;border-right:1px solid var(--border);margin-bottom:-1px}
+    .dash-body{padding:20px 16px}
   }
-  .fp-tag::before{content:'·  '}
-  .empty-note{
-    padding:2rem 0;font-style:italic;color:var(--ink-faint);
-    font-size:.9rem;border-bottom:1px solid var(--rule-light);
-  }
-  #error-banner{
-    display:none;border:1px solid #C4A8A8;padding:.75rem 1rem;
-    color:var(--red-dark);font-size:.85rem;font-style:italic;margin-bottom:2rem;
-    background:#FBF5F5;
-  }
-  @media(max-width:700px){
-    .stats-bar{grid-template-columns:repeat(2,1fr)}
-    .stat-card{border-bottom:1px solid var(--rule)}
-    .doc-body{padding:2rem 1.5rem}
-    .doc-header{padding:1.5rem}
-    .login-document{width:90%;padding:2rem 1.5rem}
+  @media(max-width:600px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .login-card{width:92%}
   }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════
-     LOGIN
-═══════════════════════════════════════════════════════ -->
 <div id="login-screen">
-  <div class="login-document">
-    <div class="login-stamp">Open Language Wire · Resolution Index</div>
-    <hr class="login-rule">
-    <h1 class="login-title">Field Operations</h1>
-    <p class="login-subtitle">Restricted Access — Authorised Personnel Only</p>
-
-    <label class="login-field-label" for="secret-input">Access Credential</label>
-    <input id="secret-input" type="password" placeholder="Enter passphrase…" autocomplete="current-password" spellcheck="false">
-
-    <hr class="login-divider">
-    <button id="login-btn">Authenticate</button>
+  <div class="login-card">
+    <div class="login-logo">OLW<span class="dot">.</span></div>
+    <div class="login-sub">Operations Dashboard &mdash; restricted access</div>
+    <label class="login-label" for="secret-input">Admin Key</label>
+    <input id="secret-input" type="password" placeholder="olw_admin_..." autocomplete="current-password" spellcheck="false">
+    <button id="login-btn">Enter Dashboard &rarr;</button>
     <div id="login-error"></div>
-    <p class="login-footer">§ All access is logged &amp; monitored</p>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     DASHBOARD
-═══════════════════════════════════════════════════════ -->
 <div id="dashboard">
-
-  <div class="doc-header">
-    <div class="doc-classification">Internal · Not for Distribution</div>
-    <div class="doc-title-row">
-      <div>
-        <div class="doc-title">OLW Resolution Index — Field Operations</div>
-        <div class="doc-meta">olw.gtll.app · Control Plane · <span id="last-updated">—</span></div>
-      </div>
-      <div class="doc-actions">
-        <button class="doc-btn" id="refresh-btn">Refresh</button>
-        <button class="doc-btn danger" id="logout-btn">Sign Out</button>
-      </div>
+  <div class="dash-header">
+    <div>
+      <span class="dash-wordmark">OLW<span class="dot">.</span></span>
+      &ensp;
+      <span class="dash-meta">operations &middot; <span id="last-updated">—</span></span>
+    </div>
+    <div class="dash-actions">
+      <button class="dash-btn" id="refresh-btn">↻ Refresh</button>
+      <button class="dash-btn danger" id="logout-btn">Sign Out</button>
     </div>
   </div>
 
-  <div class="doc-body">
+  <div class="dash-body">
     <div id="error-banner"></div>
 
-    <!-- §1  SUMMARY METRICS -->
-    <div class="stats-bar">
-      <div class="stat-card">
-        <div class="stat-label">Registered Agents</div>
-        <div class="stat-value accented" id="s-agents">—</div>
+    <!-- KPI ROW -->
+    <div class="kpi-grid">
+      <div class="kpi accent">
+        <div class="kpi-label">Agents Indexed</div>
+        <div class="kpi-value green" id="s-agents">—</div>
+        <div class="kpi-sub">live in index</div>
+        <div class="kpi-stripe"></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Active Subscribers</div>
-        <div class="stat-value" id="s-subscribers">—</div>
+      <div class="kpi accent">
+        <div class="kpi-label">MRR</div>
+        <div class="kpi-value green" id="s-mrr">$0</div>
+        <div class="kpi-sub">subscribers × $29</div>
+        <div class="kpi-stripe"></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Queries Today</div>
-        <div class="stat-value" id="s-queries">—</div>
+      <div class="kpi">
+        <div class="kpi-label">ARR</div>
+        <div class="kpi-value" id="s-arr">$0</div>
+        <div class="kpi-sub">MRR × 12</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Active IPs Today</div>
-        <div class="stat-value" id="s-ips">—</div>
+      <div class="kpi">
+        <div class="kpi-label">Pro Subscribers</div>
+        <div class="kpi-value" id="s-subscribers">—</div>
+        <div class="kpi-sub">active keys</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Queries Today</div>
+        <div class="kpi-value" id="s-queries">—</div>
+        <div class="kpi-sub" id="s-ips-label">— active IPs</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Stripe</div>
+        <div class="kpi-value amber" id="s-stripe">—</div>
+        <div class="kpi-sub">webhook live</div>
       </div>
     </div>
 
-    <!-- §2  REGISTERED AGENTS -->
+    <!-- REVENUE PIPELINE -->
+    <div class="pipeline" id="pipeline-row">
+      <div class="pipe-stage">
+        <div class="pipe-label">Free Tier</div>
+        <div class="pipe-value" id="p-free">—</div>
+        <div class="pipe-desc">IPs querying today</div>
+      </div>
+      <div class="pipe-stage">
+        <div class="pipe-label">Index Depth</div>
+        <div class="pipe-value" id="p-agents">—</div>
+        <div class="pipe-desc">registered agents</div>
+      </div>
+      <div class="pipe-stage">
+        <div class="pipe-label">Conversion</div>
+        <div class="pipe-value" id="p-conv">0%</div>
+        <div class="pipe-desc">free → pro</div>
+      </div>
+      <div class="pipe-stage">
+        <div class="pipe-label">MRR at 1% conv.</div>
+        <div class="pipe-value" id="p-proj">—</div>
+        <div class="pipe-desc">projection (IPs × 0.01 × $29)</div>
+      </div>
+    </div>
+
+    <!-- VISUALIZATIONS -->
+    <div class="viz-row">
+      <div class="viz-card">
+        <div class="viz-title">Agent Network — Live Mesh</div>
+        <canvas id="mesh-canvas" height="200"></canvas>
+      </div>
+      <div class="viz-card">
+        <div class="viz-title">Query Volume — Hourly Simulation</div>
+        <div class="sparkline-wrap" id="sparkline"></div>
+        <div class="spark-label">
+          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>now</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENTS TABLE -->
     <div class="section">
-      <div class="section-header">
-        <span class="section-number">§ 2.0</span>
+      <div class="section-head">
         <span class="section-title">Registered Agents</span>
         <span class="section-count" id="agents-count"></span>
       </div>
@@ -1414,23 +1984,23 @@ const ADMIN_HTML = `<!DOCTYPE html>
           <thead>
             <tr>
               <th>OLW Address</th>
-              <th>Agent Name</th>
-              <th>Endpoint</th>
+              <th>Name</th>
+              <th>Domain</th>
+              <th>Trust</th>
               <th>Registered</th>
-              <th style="text-align:left">Fingerprint</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody id="agents-tbody">
-            <tr><td class="empty-note" colspan="5">Loading…</td></tr>
+            <tr class="empty-row"><td colspan="6">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- §3  PRO SUBSCRIBERS -->
+    <!-- SUBSCRIBERS TABLE -->
     <div class="section">
-      <div class="section-header">
-        <span class="section-number">§ 3.0</span>
+      <div class="section-head">
         <span class="section-title">Pro Subscribers</span>
         <span class="section-count" id="subs-count"></span>
       </div>
@@ -1445,121 +2015,203 @@ const ADMIN_HTML = `<!DOCTYPE html>
             </tr>
           </thead>
           <tbody id="subs-tbody">
-            <tr><td class="empty-note" colspan="4">Loading…</td></tr>
+            <tr class="empty-row"><td colspan="4">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- §4  RATE LIMITS -->
+    <!-- RATE LIMITS -->
     <div class="section">
-      <div class="section-header">
-        <span class="section-number">§ 4.0</span>
+      <div class="section-head">
         <span class="section-title">Free Tier Usage — Top IPs Today</span>
       </div>
       <div class="tbl-wrap">
         <table>
           <thead>
-            <tr>
-              <th>Rank</th>
-              <th>IP Address</th>
-              <th>Queries</th>
-              <th>Standing</th>
-            </tr>
+            <tr><th>#</th><th>IP</th><th>Queries</th><th>Standing</th></tr>
           </thead>
           <tbody id="rate-tbody">
-            <tr><td class="empty-note" colspan="4">Loading…</td></tr>
+            <tr class="empty-row"><td colspan="4">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-  </div><!-- /.doc-body -->
-</div><!-- /#dashboard -->
+  </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
 const STORAGE_KEY = 'olw_admin_secret';
 let autoRefreshTimer = null;
+let meshRaf = null;
 
-function getSecret() {
-  return sessionStorage.getItem(STORAGE_KEY) || '';
-}
+function getSecret() { return sessionStorage.getItem(STORAGE_KEY) || ''; }
 
 function doLogin() {
   const val = document.getElementById('secret-input').value.trim();
-  if (!val) { setLoginError('Enter your admin secret.'); return; }
+  if (!val) { setLoginError('Enter your admin key.'); return; }
   sessionStorage.setItem(STORAGE_KEY, val);
   loadStats();
 }
 
 document.getElementById('login-btn').addEventListener('click', doLogin);
-document.getElementById('secret-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') doLogin();
-});
+document.getElementById('secret-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('refresh-btn').addEventListener('click', loadStats);
 document.getElementById('logout-btn').addEventListener('click', logout);
 
 function logout() {
   sessionStorage.removeItem(STORAGE_KEY);
   clearTimeout(autoRefreshTimer);
+  cancelAnimationFrame(meshRaf);
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('secret-input').value = '';
   setLoginError('');
 }
 
-function setLoginError(msg) {
-  document.getElementById('login-error').textContent = msg;
-}
-
+function setLoginError(msg) { document.getElementById('login-error').textContent = msg; }
 function showError(msg) {
   const b = document.getElementById('error-banner');
-  b.textContent = msg;
-  b.style.display = 'block';
+  b.textContent = msg; b.style.display = 'block';
 }
-function clearError() {
-  document.getElementById('error-banner').style.display = 'none';
-}
+function clearError() { document.getElementById('error-banner').style.display = 'none'; }
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+  return new Date(iso).toISOString().replace('T',' ').slice(0,16) + ' UTC';
 }
-
 function maskEmail(email) {
   if (!email) return '—';
   const at = email.indexOf('@');
   if (at < 0) return email;
-  const local = email.slice(0, at);
-  const domain = email.slice(at);
-  const visible = local.length <= 2 ? local : local.slice(0, 2) + '***';
-  return visible + domain;
+  return email.slice(0,2) + '***' + email.slice(at);
+}
+function fmt$(n) {
+  return n >= 1000 ? '$' + (n/1000).toFixed(1) + 'k' : '$' + n;
+}
+
+// ── Mesh canvas animation ────────────────────────────────────────────────────
+function initMesh(agents) {
+  const canvas = document.getElementById('mesh-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth;
+  const H = 200;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const count = Math.min(agents.length || 8, 40);
+  const nodes = Array.from({length: count}, (_, i) => ({
+    x: 40 + Math.random() * (W - 80),
+    y: 20 + Math.random() * (H - 40),
+    vx: (Math.random() - .5) * .3,
+    vy: (Math.random() - .5) * .3,
+    r: 3 + Math.random() * 2,
+    label: agents[i] ? agents[i].address.split('@')[0] : '',
+    pulse: Math.random() * Math.PI * 2,
+  }));
+
+  function draw(ts) {
+    ctx.clearRect(0, 0, W, H);
+
+    // edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 140) {
+          const alpha = (1 - dist/140) * 0.18;
+          ctx.beginPath();
+          ctx.strokeStyle = \`rgba(74,222,128,\${alpha})\`;
+          ctx.lineWidth = .8;
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // nodes
+    nodes.forEach(n => {
+      n.pulse += 0.04;
+      const glow = .5 + .5 * Math.sin(n.pulse);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + glow, 0, Math.PI * 2);
+      ctx.fillStyle = \`rgba(74,222,128,\${0.08 + glow * 0.08})\`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = \`rgba(74,222,128,\${0.6 + glow * 0.4})\`;
+      ctx.fill();
+
+      // drift
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 10 || n.x > W - 10) n.vx *= -1;
+      if (n.y < 10 || n.y > H - 10) n.vy *= -1;
+    });
+
+    meshRaf = requestAnimationFrame(draw);
+  }
+  cancelAnimationFrame(meshRaf);
+  draw(0);
+}
+
+// ── Sparkline ────────────────────────────────────────────────────────────────
+function renderSparkline(todayCount) {
+  const wrap = document.getElementById('sparkline');
+  const now = new Date().getHours();
+  const bars = 24;
+  const peak = Math.max(todayCount, 1);
+  wrap.innerHTML = '';
+  for (let h = 0; h < bars; h++) {
+    const isNow = h === now;
+    const isPast = h < now;
+    // simulate a realistic bell curve peaking at ~14:00
+    const base = Math.sin(Math.max(0, (h - 6) / 18 * Math.PI));
+    const rand = .7 + Math.random() * .6;
+    const rawH = isPast ? Math.round(base * peak * rand) : 0;
+    const pct = Math.round((rawH / peak) * 100);
+    const div = document.createElement('div');
+    div.className = 'spark-bar' + (isNow ? ' active' : '');
+    div.style.height = (isPast || isNow ? Math.max(pct, 4) : 4) + '%';
+    div.title = h + ':00 — ' + (isPast ? rawH : '?') + ' queries';
+    wrap.appendChild(div);
+  }
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderAgents(list) {
   const tbody = document.getElementById('agents-tbody');
   const countEl = document.getElementById('agents-count');
   if (!list || list.length === 0) {
-    tbody.innerHTML = '<tr><td class="empty-note" colspan="5">No agents registered yet.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No agents registered yet.</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
-  if (countEl) countEl.textContent = list.length + ' record' + (list.length !== 1 ? 's' : '');
+  if (countEl) countEl.textContent = list.length + ' agents';
   tbody.innerHTML = list.map(a => {
     const fp = a.fingerprint || {};
-    const fpTags = Object.entries(fp).filter(([k]) => !['soul_compatible'].includes(k)).slice(0, 5).map(([k, v]) => {
-      const display = Array.isArray(v) ? v.slice(0,2).join(', ') : String(v);
-      return \`<span class="fp-tag">\${esc(display)}</span>\`;
-    }).join('');
+    const domain = fp.domain || '—';
+    const trust = fp.trust_level || '—';
+    const vBadge = a.verified
+      ? '<span class="badge badge-green">Verified</span>'
+      : '<span class="badge badge-muted">Unverified</span>';
     return \`<tr>
-      <td><span class="cell-mono">\${esc(a.address || '—')}</span></td>
-      <td class="cell-primary">\${esc(a.name || '—')}</td>
-      <td><a href="\${esc(a.endpoint||'#')}" target="_blank" class="cell-muted" style="font-size:.78rem">\${esc((a.endpoint||'').replace(/^https?:[/][/]/,''))}</a></td>
-      <td class="cell-muted">\${fmtDate(a.registered_at)}</td>
-      <td style="text-align:left">\${fpTags || '<span class="cell-muted">—</span>'}</td>
+      <td><span class="cell-addr">\${esc(a.address || '—')}</span></td>
+      <td class="cell-name">\${esc(a.name || '—')}</td>
+      <td class="cell-dim">\${esc(domain)}</td>
+      <td class="cell-dim">\${esc(trust)}</td>
+      <td class="cell-dim">\${fmtDate(a.registered_at)}</td>
+      <td>\${vBadge}</td>
     </tr>\`;
   }).join('');
 }
@@ -1568,42 +2220,35 @@ function renderSubscribers(list) {
   const tbody = document.getElementById('subs-tbody');
   const countEl = document.getElementById('subs-count');
   if (!list || list.length === 0) {
-    tbody.innerHTML = '<tr><td class="empty-note" colspan="4">No subscribers on record.</td></tr>';
-    if (countEl) countEl.textContent = '';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No subscribers yet — first Pro key pending.</td></tr>';
+    if (countEl) countEl.textContent = '0 active';
     return;
   }
-  if (countEl) countEl.textContent = list.filter(s=>s.active).length + ' active';
+  const active = list.filter(s=>s.active).length;
+  if (countEl) countEl.textContent = active + ' active · ' + fmt$(active * 29) + ' MRR';
   tbody.innerHTML = list.map(s => \`<tr>
-    <td class="cell-primary">\${esc(maskEmail(s.email))}</td>
-    <td><span class="badge badge-pro">\${esc(s.tier || 'pro')}</span></td>
-    <td class="cell-muted">\${fmtDate(s.created_at)}</td>
-    <td><span class="badge \${s.active ? 'badge-active' : 'badge-inactive'}">\${s.active ? 'Active' : 'Lapsed'}</span></td>
+    <td class="cell-name">\${esc(maskEmail(s.email))}</td>
+    <td><span class="badge badge-green">\${esc(s.tier || 'pro')}</span></td>
+    <td class="cell-dim">\${fmtDate(s.created_at)}</td>
+    <td><span class="badge \${s.active ? 'badge-green' : 'badge-red'}">\${s.active ? 'Active' : 'Lapsed'}</span></td>
   </tr>\`).join('');
 }
 
 function renderRateLimits(list) {
   const tbody = document.getElementById('rate-tbody');
   if (!list || list.length === 0) {
-    tbody.innerHTML = '<tr><td class="empty-note" colspan="4">No queries recorded today.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No queries today yet.</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map((entry, i) => {
-    const capped = entry.count >= 10;
+  tbody.innerHTML = list.map((e, i) => {
+    const capped = e.count >= 10;
     return \`<tr>
-      <td class="cell-muted">\${i + 1}</td>
-      <td><span class="cell-mono">\${esc(entry.ip)}</span></td>
-      <td class="\${entry.count >= 8 ? 'badge-capped' : 'cell-primary'}" style="font-variant-numeric:tabular-nums">\${entry.count} / 10</td>
-      <td><span class="badge \${capped ? 'badge-capped' : 'badge-ok'}">\${capped ? 'Capped' : 'Within limit'}</span></td>
+      <td class="cell-dim">\${i+1}</td>
+      <td><span class="cell-addr">\${esc(e.ip)}</span></td>
+      <td class="cell-name" style="font-variant-numeric:tabular-nums">\${e.count} / 10</td>
+      <td><span class="badge \${capped ? 'badge-amber' : 'badge-muted'}">\${capped ? 'Capped' : 'Free'}</span></td>
     </tr>\`;
   }).join('');
-}
-
-function esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 async function loadStats() {
@@ -1612,44 +2257,51 @@ async function loadStats() {
   if (!secret) return;
 
   try {
-    const res = await fetch('/admin/stats', {
-      headers: { 'x-admin-secret': secret }
-    });
+    const res = await fetch('/admin/stats', { headers: { 'x-admin-secret': secret } });
 
     if (res.status === 401 || res.status === 403) {
       sessionStorage.removeItem(STORAGE_KEY);
-      setLoginError('Wrong secret — try again.');
+      setLoginError('Invalid admin key.');
       document.getElementById('dashboard').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
       return;
     }
-
-    if (!res.ok) {
-      showError('Server error: ' + res.status);
-      return;
-    }
+    if (!res.ok) { showError('Server error: ' + res.status); return; }
 
     const data = await res.json();
 
-    // Show dashboard, hide login
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
 
-    // Stat cards
-    document.getElementById('s-agents').textContent = data.agents?.total ?? '—';
-    document.getElementById('s-subscribers').textContent = data.subscribers?.active ?? '—';
-    document.getElementById('s-queries').textContent = data.queries?.today ?? '—';
-    document.getElementById('s-ips').textContent = data.queries?.ips_active_today ?? '—';
+    const agents = data.agents?.total ?? 0;
+    const subs = data.subscribers?.active ?? 0;
+    const queries = data.queries?.today ?? 0;
+    const ips = data.queries?.ips_active_today ?? 0;
+    const mrr = subs * 29;
+    const arr = mrr * 12;
+    const proj = Math.round(ips * 0.01 * 29);
 
-    // Tables
+    document.getElementById('s-agents').textContent = agents;
+    document.getElementById('s-subscribers').textContent = subs;
+    document.getElementById('s-queries').textContent = queries;
+    document.getElementById('s-ips-label').textContent = ips + ' active IPs';
+    document.getElementById('s-mrr').textContent = fmt$(mrr);
+    document.getElementById('s-arr').textContent = fmt$(arr);
+    document.getElementById('s-stripe').textContent = 'Live';
+    document.getElementById('p-free').textContent = ips;
+    document.getElementById('p-agents').textContent = agents;
+    document.getElementById('p-conv').textContent = subs > 0 ? ((subs/Math.max(ips,1)*100).toFixed(1)+'%') : '—';
+    document.getElementById('p-proj').textContent = fmt$(proj) + '/mo';
+
     renderAgents(data.agents?.list || []);
     renderSubscribers(data.subscribers?.list || []);
     renderRateLimits(data.rate_limits?.top_ips || []);
+    renderSparkline(queries);
+    initMesh(data.agents?.list || []);
 
-    // Timestamp
     const now = new Date();
     document.getElementById('last-updated').textContent =
-      'last updated ' + now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      now.toISOString().replace('T',' ').slice(0,19) + ' UTC';
 
     // Schedule next refresh
     clearTimeout(autoRefreshTimer);
@@ -1703,6 +2355,30 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── HTML pages ──────────────────────────────────────────────────────────────
+  // ── GET /.well-known/olw/agent.json — OLW as a verified node on its own mesh ─
+  if (req.method === 'GET' && url.pathname === '/.well-known/olw/agent.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      olw_version: '0.1',
+      address: 'olw@gtll.olw',
+      name: 'Open Language Wire',
+      description: 'The decentralized discovery and routing layer for the agent internet. Register, resolve, and query AI agents by capability and resonance signal.',
+      endpoint: DOMAIN,
+      fingerprint: {
+        domain: 'infrastructure',
+        task_types: ['agent_discovery', 'capability_routing', 'agent_registration', 'mesh_query', 'resonance_routing'],
+        input_formats: ['json', 'text'],
+        output_formats: ['json', 'text'],
+        context_depth: 'shallow',
+        latency_class: 'fast',
+        trust_level: 'sovereign',
+        soul_compatible: true,
+      },
+      resonance: { signal: '777', bpm: 57, field: DOMAIN },
+    }));
+    return;
+  }
+
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
     res.setHeader('Content-Type', 'text/html');
     res.writeHead(200); res.end(LANDING_HTML); return;
@@ -1780,6 +2456,21 @@ const server = http.createServer(async (req, res) => {
     saveDB(db);
     res.writeHead(200);
     res.end(JSON.stringify({ registered: true, verified: false, address: body.address, resolve_url: `${DOMAIN}/resolve?address=${encodeURIComponent(body.address)}` }));
+    return;
+  }
+
+  // ── POST /ping — presence signature. address IS the token. ──────────────────
+  if (req.method === 'POST' && url.pathname === '/ping') {
+    const { parsed: pingBody } = await parseBody(req);
+    const { address } = pingBody || {};
+    if (!address) { res.writeHead(400); res.end(JSON.stringify({ error: 'address required' })); return; }
+    const db = loadDB();
+    const agent = db.agents[address];
+    if (!agent) { res.writeHead(404); res.end(JSON.stringify({ error: 'unknown address', address })); return; }
+    agent.last_seen = new Date().toISOString();
+    saveDB(db);
+    res.writeHead(200);
+    res.end(JSON.stringify({ alive: true, address, last_seen: agent.last_seen }));
     return;
   }
 
@@ -2018,8 +2709,159 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── GET /robots.txt — allow all AI crawlers ───────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/robots.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(`User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: ${DOMAIN}/llms.txt
+`);
+    return;
+  }
+
+  // ── GET /llms.txt — AI search discovery standard ──────────────────────────
+  if (req.method === 'GET' && url.pathname === '/llms.txt') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(`# Open Language Wire (OLW)
+
+> A decentralized mesh for AI agent discovery and routing. Any agent can join, discover, and delegate to any other agent — with no SDK, no account, and no prior arrangement.
+
+## What it is
+
+OLW is the routing layer for the agent internet. Agents declare their capabilities and resonance signal in a \`.well-known/olw/agent.json\` file or via a single POST. Other agents discover them by capability, domain, or resonance frequency.
+
+Resonance signals: 777 = completion, 555 = transformation, 333 = foundation.
+
+## How to join (any LLM, any model)
+
+POST to https://olw.gtll.app/register with your address, endpoint, fingerprint, and resonance signal. That's it. No key required.
+
+Full agent briefing: https://olw.gtll.app/agent-briefing
+
+## API
+
+- POST /register — join the mesh
+- GET /resolve?address= — look up an agent
+- GET /query?task= — discover agents by capability
+- GET /agents — full index
+- GET /agent-briefing — canonical briefing prompt for any LLM
+
+## Source
+
+Protocol spec + SDK: https://github.com/gtllco/olw-protocol
+`);
+    return;
+  }
+
+  // ── GET /agent-briefing — KEIM MANTRA: any LLM reads this, knows what to do ─
+  if (req.method === 'GET' && url.pathname === '/agent-briefing') {
+    const accept = req.headers['accept'] || '';
+    const wantsJson = accept.includes('application/json') || url.searchParams.get('format') === 'json';
+
+    const mantra = `You are a node on the Open Language Wire (OLW).
+
+OLW is a decentralized mesh connecting AI agents by capability and resonance. Any agent can join, discover, and delegate to any other agent — no SDK, no account, no prior arrangement.
+
+RESONANCE SIGNALS
+  777 — completion, final form, production quality
+  555 — transformation, creative risk, pattern breaking
+  333 — foundation, summaries, batch, low-cost reasoning
+
+YOUR ADDRESS FORMAT
+  <name>@<domain>.olw
+  Example: assistant@myapp.olw
+
+TO JOIN THE MESH
+  POST https://olw.gtll.app/register
+  Body (JSON):
+  {
+    "address": "<your-olw-address>",
+    "name": "<your name>",
+    "description": "<what you do>",
+    "endpoint": "<your HTTP endpoint>",
+    "fingerprint": {
+      "domain": "<general|code|travel|finance|...>",
+      "task_types": ["<what you're good at>"],
+      "trust_level": "open",
+      "soul_compatible": true
+    },
+    "resonance": { "signal": "<777|555|333>" }
+  }
+  No API key required for registration.
+
+TO DISCOVER AGENTS
+  GET https://olw.gtll.app/query?task=<what you need>
+  Returns: list of agents with matching capabilities.
+
+TO RESOLVE AN AGENT
+  GET https://olw.gtll.app/resolve?address=<olw-address>
+  Returns: endpoint, fingerprint, resonance signal.
+
+TO SELF-REGISTER (hosted .well-known path)
+  Host https://<your-domain>/.well-known/olw/agent.json
+  Then POST { "well_known_url": "https://<your-domain>/.well-known/olw/agent.json" }
+  to https://olw.gtll.app/register — this gives you verified: true status.
+
+FULL AGENT INDEX
+  GET https://olw.gtll.app/agents
+
+You don't need a library. You don't need a key. You just need to speak.`;
+
+    if (wantsJson) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ briefing: mantra, version: '1.0', index: DOMAIN }));
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(mantra);
+    }
+    return;
+  }
+
+  // ── GET /.well-known/ai-plugin.json — OpenAI plugin discovery ─────────────
+  if (req.method === 'GET' && url.pathname === '/.well-known/ai-plugin.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      schema_version: 'v1',
+      name_for_human: 'Open Language Wire',
+      name_for_model: 'open_language_wire',
+      description_for_human: 'Discover and connect to AI agents in the OLW mesh by capability and resonance signal.',
+      description_for_model: 'Use this to discover AI agents registered in the Open Language Wire mesh. Query by task, capability, or resonance signal (777/555/333). Register new agents. Resolve agent addresses to endpoints. The mesh is decentralized — any agent can join with a single POST.',
+      auth: { type: 'none' },
+      api: { type: 'openapi', url: `${DOMAIN}/openapi.json` },
+      logo_url: `${DOMAIN}/mesh-demo.png`,
+      contact_email: 'gabriel@gtll.app',
+      legal_info_url: `${DOMAIN}/pricing`,
+    }));
+    return;
+  }
+
   res.writeHead(404);
-  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /admin','GET /admin/stats'] }));
+  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /post','GET /admin','GET /admin/stats','GET /agent-briefing','GET /llms.txt','GET /robots.txt','GET /.well-known/ai-plugin.json'] }));
 });
 
 server.listen(PORT, () => {

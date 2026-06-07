@@ -3,356 +3,513 @@
 <title>OLW · The Mesh</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;overflow:hidden;background:#02020a;font-family:'SF Pro Display',-apple-system,system-ui,sans-serif;color:#d8d2ff;}
-canvas{display:block;position:fixed;inset:0;cursor:default;}
-#hud{position:fixed;top:0;left:0;right:0;padding:22px 26px;pointer-events:none;z-index:5;}
-.kick{font-size:9.5px;letter-spacing:.4em;text-transform:uppercase;color:rgba(160,130,255,.6);}
-h1{font-size:21px;font-weight:700;color:#fff;margin-top:5px;letter-spacing:-.01em;}
-h1 span{color:#b79bff;text-shadow:0 0 22px rgba(150,100,255,.6);}
-#bar{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(680px,90vw);z-index:6;}
-#row{display:flex;gap:9px;background:rgba(8,5,20,.82);border:1px solid rgba(120,80,255,.28);border-radius:13px;padding:8px 8px 8px 16px;backdrop-filter:blur(14px);box-shadow:0 8px 40px rgba(80,40,180,.25);}
-#intent{flex:1;background:transparent;border:none;outline:none;color:#e8e2ff;font-size:14.5px;font-family:inherit;}
-#intent::placeholder{color:rgba(170,150,230,.42);}
-#go{background:linear-gradient(135deg,#7b4dff,#b79bff);border:none;border-radius:9px;color:#06040f;font-weight:700;font-size:13px;padding:9px 20px;cursor:pointer;letter-spacing:.02em;transition:.15s;}
-#go:hover{filter:brightness(1.12);}#go:active{transform:scale(.97);}
-#chips{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;justify-content:center;}
-.chip{font-size:10.5px;color:rgba(190,170,250,.7);background:rgba(120,80,255,.1);border:1px solid rgba(120,80,255,.2);border-radius:20px;padding:4px 12px;cursor:pointer;transition:.15s;}
-.chip:hover{background:rgba(120,80,255,.22);color:#e8e2ff;}
-#panel{position:fixed;top:84px;right:22px;width:288px;z-index:6;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-.m{background:rgba(8,5,20,.8);border:1px solid rgba(120,80,255,.18);border-left:2px solid #7bf0d4;border-radius:9px;padding:10px 13px;backdrop-filter:blur(12px);opacity:0;transform:translateX(16px);transition:.45s cubic-bezier(.4,0,.2,1);}
-.m.show{opacity:1;transform:none;}
-.m .ad{font-family:'SF Mono',ui-monospace,monospace;font-size:12px;color:#b79bff;font-weight:600;}
-.m .sc{float:right;font-family:'SF Mono',monospace;font-size:12px;color:#7bf0d4;}
-.m .wy{font-family:'SF Mono',monospace;font-size:9.5px;color:rgba(190,180,235,.66);margin-top:4px;line-height:1.45;}
-.m.top{border-left-color:#ff9bd8;}.m.top .ad{color:#ff9bd8;}
-#stat{position:fixed;left:26px;bottom:34px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(150,130,210,.5);z-index:6;}
-.dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#7bf0d4;box-shadow:0 0 8px #7bf0d4;margin-right:6px;}
-#tooltip{position:fixed;background:rgba(6,3,18,.94);border:1px solid rgba(120,80,255,.32);border-radius:9px;padding:10px 13px;pointer-events:none;z-index:10;max-width:230px;display:none;backdrop-filter:blur(14px);}
-#tooltip .tn{font-family:'SF Mono',monospace;font-size:12px;color:#b79bff;font-weight:600;margin-bottom:5px;}
-#tooltip .td{font-size:10px;color:rgba(190,180,235,.72);line-height:1.65;white-space:pre-line;}
+html,body{height:100%;overflow:hidden;background:#050508;font-family:'SF Pro Display',-apple-system,system-ui,sans-serif;color:#d8d2ff;}
+canvas{display:block;position:fixed;inset:0;}
+#hud{position:fixed;top:0;left:0;right:0;padding:20px 24px;pointer-events:none;z-index:5;display:flex;align-items:flex-start;justify-content:space-between;}
+.brand{pointer-events:none;}
+.kick{font-size:9px;letter-spacing:.42em;text-transform:uppercase;color:rgba(160,130,255,.5);}
+h1{font-size:19px;font-weight:700;color:#fff;margin-top:4px;letter-spacing:-.01em;}
+h1 span{color:#b79bff;text-shadow:0 0 18px rgba(150,100,255,.5);}
+#legend{display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.leg{display:flex;align-items:center;gap:6px;font-size:9.5px;color:rgba(180,165,230,.5);letter-spacing:.04em;}
+.legdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+#bar{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);width:min(640px,90vw);z-index:6;}
+#row{display:flex;gap:8px;background:rgba(8,5,20,.85);border:1px solid rgba(120,80,255,.25);border-radius:12px;padding:7px 7px 7px 15px;backdrop-filter:blur(16px);box-shadow:0 6px 32px rgba(60,30,160,.3);}
+#intent{flex:1;background:transparent;border:none;outline:none;color:#e8e2ff;font-size:14px;font-family:inherit;}
+#intent::placeholder{color:rgba(170,150,230,.38);}
+#go{background:linear-gradient(135deg,#7b4dff,#b79bff);border:none;border-radius:8px;color:#06040f;font-weight:700;font-size:12.5px;padding:8px 18px;cursor:pointer;transition:.15s;white-space:nowrap;}
+#go:hover{filter:brightness(1.1);}#go:active{transform:scale(.97);}
+#chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:center;}
+.chip{font-size:10px;color:rgba(190,170,250,.65);background:rgba(120,80,255,.08);border:1px solid rgba(120,80,255,.18);border-radius:18px;padding:3px 11px;cursor:pointer;transition:.15s;}
+.chip:hover{background:rgba(120,80,255,.2);color:#e0d8ff;}
+#stat{position:fixed;left:22px;bottom:28px;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(140,120,200,.45);z-index:6;pointer-events:none;}
+.dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:#7bf0d4;box-shadow:0 0 6px #7bf0d4;margin-right:5px;vertical-align:middle;}
+#tip{position:fixed;background:rgba(5,3,15,.95);border:1px solid rgba(120,80,255,.28);border-radius:9px;padding:9px 12px;pointer-events:none;z-index:10;max-width:220px;display:none;backdrop-filter:blur(14px);}
+#tip-name{font-family:'SF Mono',monospace;font-size:11.5px;color:#b79bff;font-weight:600;margin-bottom:4px;}
+#tip-body{font-size:9.5px;color:rgba(190,180,235,.68);line-height:1.62;white-space:pre-line;}
+#hint{position:fixed;bottom:100px;right:22px;font-size:9px;color:rgba(140,120,200,.3);text-align:right;pointer-events:none;z-index:5;line-height:1.8;letter-spacing:.03em;}
 </style></head><body>
 <canvas id="c"></canvas>
-<div id="hud"><div class="kick">Open Language Wire · Signal 555</div><h1>The <span>Mesh</span> — capability finds capability</h1></div>
-<div id="panel"></div>
-<div id="stat"><span class="dot"></span><span id="statt">loading the mesh…</span></div>
+<div id="hud">
+  <div class="brand">
+    <div class="kick">Open Language Wire · Signal 555</div>
+    <h1>The <span>Mesh</span> — capability finds capability</h1>
+  </div>
+  <div id="legend"></div>
+</div>
+<div id="stat"><span class="dot"></span><span id="statt">loading…</span></div>
+<div id="hint">scroll to zoom · drag to pan<br>drag nodes · hover to inspect</div>
 <div id="bar">
   <div id="row">
-    <input id="intent" placeholder="describe what you need done, in plain language…" autocomplete="off"/>
+    <input id="intent" placeholder="describe what you need done…" autocomplete="off"/>
     <button id="go">pull →</button>
   </div>
   <div id="chips"></div>
 </div>
-<div id="tooltip"><div class="tn" id="tt-name"></div><div class="td" id="tt-detail"></div></div>
+<div id="tip"><div id="tip-name"></div><div id="tip-body"></div></div>
+
 <script>
-const cv=document.getElementById('c'),ctx=cv.getContext('2d');
-let W,H,DPR;
-function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
-addEventListener('resize',resize);resize();
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, DPR;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+addEventListener('resize', () => { resize(); reheat(); });
+resize();
 
-// Domain → color palette (rgb strings)
-const DC={
-  'payments':       {core:'255,140,80',  glow:'255,160,100', label:'#ffb06a'},
-  'events':         {core:'80,220,180',  glow:'100,240,200', label:'#60dfc0'},
-  'hospitality':    {core:'255,200,100', glow:'255,220,130', label:'#ffd060'},
-  'travel':         {core:'80,170,255',  glow:'110,200,255', label:'#60aaff'},
-  'ai-infrastructure':{core:'190,100,255',glow:'210,130,255',label:'#c878ff'},
-  'finance':        {core:'255,140,80',  glow:'255,160,100', label:'#ffb06a'},
-  'default':        {core:'123,240,212', glow:'150,255,220', label:'#7bf0d4'},
+// --- Domain color map ---
+const DC = {
+  'payments':          { rgb: '255,140,80',   hex: '#ff8c50' },
+  'finance':           { rgb: '255,140,80',   hex: '#ff8c50' },
+  'events':            { rgb: '80,220,180',   hex: '#50dcb4' },
+  'hospitality':       { rgb: '255,205,90',   hex: '#ffcd5a' },
+  'travel':            { rgb: '80,170,255',   hex: '#50aaff' },
+  'ai-infrastructure': { rgb: '195,100,255',  hex: '#c364ff' },
+  'research':          { rgb: '120,200,255',  hex: '#78c8ff' },
+  'legal':             { rgb: '255,175,120',  hex: '#ffaf78' },
+  'health':            { rgb: '120,240,150',  hex: '#78f096' },
+  'sales':             { rgb: '255,120,160',  hex: '#ff78a0' },
+  'default':           { rgb: '160,145,255',  hex: '#a091ff' },
 };
-function dc(d){return DC[d]||DC['default'];}
+function dc(d) { return DC[d] || DC.default; }
 
-let nodes=[],t=0,pulling=false,intentText='',pulses=[];
-const cx=()=>W/2,cy=()=>H/2+10;
-function shortName(a){return a.split('@')[0];}
+// --- State ---
+let nodes = [], edges = [], intentNode = null;
+let simHeat = 1.0; // 1 = hot, 0 = cool
+let t = 0;
 
-async function load(){
-  try{
-    const r=await fetch('/agents');
-    const j=await r.json();
-    const ags=(j.agents||[]).slice();
-    // Sort by domain so same-domain nodes cluster on the ring
-    ags.sort((a,b)=>{
-      const da=(a.fingerprint||{}).domain||'zzz';
-      const db=(b.fingerprint||{}).domain||'zzz';
-      return da.localeCompare(db);
+// Camera (pan + zoom)
+let cam = { x: 0, y: 0, z: 1.0 };
+function toWorld(sx, sy) {
+  return { x: (sx - W / 2) / cam.z - cam.x, y: (sy - H / 2) / cam.z - cam.y };
+}
+function toScreen(wx, wy) {
+  return { x: (wx + cam.x) * cam.z + W / 2, y: (wy + cam.y) * cam.z + H / 2 };
+}
+
+// Sim constants — tuned for Obsidian-style organic spread
+const REPEL = 22000, ATTRACT = 0.045, REST = 100, GRAVITY = 0.00035, DAMP = 0.88;
+
+function reheat(amount = 1.0) { simHeat = Math.min(1.0, simHeat + amount); }
+
+function stepSim() {
+  if (simHeat < 0.01) return;
+  const all = [...nodes, intentNode].filter(Boolean);
+  const n = all.length;
+
+  // Forces
+  for (let i = 0; i < n; i++) {
+    const a = all[i];
+    let fx = 0, fy = 0;
+    // Repulsion between all pairs
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue;
+      const b = all[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const d2 = dx * dx + dy * dy + 1;
+      const f = REPEL / d2;
+      fx += f * dx / Math.sqrt(d2);
+      fy += f * dy / Math.sqrt(d2);
+    }
+    // Edge attraction
+    for (const e of edges) {
+      let other = null;
+      if (e.a === a) other = e.b;
+      else if (e.b === a) other = e.a;
+      if (!other) continue;
+      const dx = other.x - a.x, dy = other.y - a.y;
+      const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
+      const f = ATTRACT * (d - REST);
+      fx += f * dx / d;
+      fy += f * dy / d;
+    }
+    // Weak gravity toward 0,0
+    fx -= a.x * GRAVITY;
+    fy -= a.y * GRAVITY;
+    // Integrate
+    a.vx = (a.vx + fx * 0.016) * DAMP;
+    a.vy = (a.vy + fy * 0.016) * DAMP;
+  }
+  // Move (skip pinned/dragged)
+  for (const nd of all) {
+    if (nd.pinned) continue;
+    nd.x += nd.vx;
+    nd.y += nd.vy;
+  }
+  // Cool down
+  simHeat *= 0.992;
+}
+
+// Build edges between same-domain agents
+function buildEdges() {
+  edges = edges.filter(e => e.intent); // keep intent edges
+  const byDomain = {};
+  for (const nd of nodes) {
+    if (!nd.domain || nd.domain === 'default') continue;
+    if (!byDomain[nd.domain]) byDomain[nd.domain] = [];
+    byDomain[nd.domain].push(nd);
+  }
+  for (const [, grp] of Object.entries(byDomain)) {
+    // Connect all in group but cap to avoid hairball on large groups
+    for (let i = 0; i < grp.length; i++) {
+      for (let j = i + 1; j < grp.length; j++) {
+        if (grp.length > 5 && Math.random() > 0.45) continue; // sparse for big groups
+        edges.push({ a: grp[i], b: grp[j], intent: false });
+      }
+    }
+  }
+}
+
+function buildLegend() {
+  const seen = new Set(nodes.map(n => n.domain).filter(d => d && d !== 'default'));
+  const leg = document.getElementById('legend');
+  leg.innerHTML = '';
+  for (const d of seen) {
+    const c = dc(d);
+    const row = document.createElement('div');
+    row.className = 'leg';
+    row.innerHTML = `<span class="legdot" style="background:${c.hex};box-shadow:0 0 6px ${c.hex}88"></span>${d}`;
+    leg.appendChild(row);
+  }
+}
+
+async function load() {
+  try {
+    const r = await fetch('/agents');
+    const j = await r.json();
+    const ags = j.agents || [];
+    // Group by domain for initial clustered placement
+    const domainGroups = {};
+    ags.forEach(a => {
+      const dom = (a.fingerprint || {}).domain || 'default';
+      if (!domainGroups[dom]) domainGroups[dom] = [];
+      domainGroups[dom].push(a);
     });
-    const n=ags.length;
-    ags.forEach((a,i)=>{
-      const ang=(i/n)*Math.PI*2-Math.PI/2;
-      const rad=Math.min(W,H)*0.32;
-      const bx=cx()+Math.cos(ang)*rad,by=cy()+Math.sin(ang)*rad;
-      const fp=a.fingerprint||{};
-      const dom=fp.domain||'default';
-      const tasks=(fp.tasks||fp.task_types||[]).join(' · ');
-      nodes.push({
-        addr:a.address,name:shortName(a.address),
-        domain:dom,tasks,latency:fp.latency||'',trust:fp.trust||fp.trust_level||'',fp,
-        x:bx,y:by,bx,by,tx:bx,ty:by,
-        r:7,glow:0.35,score:0,rank:0,why:'',dim:0,phase:Math.random()*6.28
-      });
+    const domainKeys = Object.keys(domainGroups);
+    const spreadR = Math.min(W, H) * 0.38;
+
+    nodes = ags.map(a => {
+      const fp = a.fingerprint || {};
+      const dom = fp.domain || 'default';
+      const di = domainKeys.indexOf(dom);
+      const clusterAng = (di / domainKeys.length) * Math.PI * 2;
+      const cx0 = Math.cos(clusterAng) * spreadR * 0.55;
+      const cy0 = Math.sin(clusterAng) * spreadR * 0.55;
+      return {
+        id: a.address, name: (a.address || '').split('@')[0],
+        domain: dom,
+        tasks: (fp.tasks || fp.task_types || []).join(' · '),
+        latency: fp.latency || '', trust: fp.trust || fp.trust_level || '',
+        fp,
+        x: cx0 + (Math.random() - 0.5) * 90,
+        y: cy0 + (Math.random() - 0.5) * 90,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        r: 5, score: 0, rank: 0, why: '', matched: false,
+        pinned: false, phase: Math.random() * 6.28,
+      };
     });
-    document.getElementById('statt').textContent=n+' agents in the mesh · idle';
-  }catch(e){document.getElementById('statt').textContent='mesh offline';}
-}
-
-// Compute domain label positions from current node positions
-function domainLabelPositions(){
-  const groups={};
-  nodes.forEach(nd=>{
-    if(!groups[nd.domain])groups[nd.domain]=[];
-    groups[nd.domain].push(nd);
-  });
-  return Object.entries(groups).map(([dom,nds])=>{
-    const ax=nds.reduce((s,n)=>s+n.bx,0)/nds.length;
-    const ay=nds.reduce((s,n)=>s+n.by,0)/nds.length;
-    const ang=Math.atan2(ay-cy(),ax-cx());
-    const dist=Math.min(W,H)*0.42;
-    return {dom,x:cx()+Math.cos(ang)*dist,y:cy()+Math.sin(ang)*dist,count:nds.length};
-  });
-}
-
-function spawnPulse(nd,rank){
-  // Multiple pulses per match, staggered
-  for(let i=0;i<3;i++){
-    setTimeout(()=>pulses.push({nd,p:0,rank,speed:0.007+Math.random()*0.004}),i*220);
+    buildEdges();
+    buildLegend();
+    // Pre-solve synchronously — run until mostly converged
+    simHeat = 1.0;
+    for (let i = 0; i < 800; i++) stepSim();
+    simHeat = 0.2;
+    document.getElementById('statt').textContent = nodes.length + ' agents · idle';
+  } catch (e) {
+    document.getElementById('statt').textContent = 'mesh offline';
   }
 }
 
-function drawCurve(x1,y1,x2,y2,phase){
-  const mx=(x1+x2)/2+Math.sin(t+phase)*7;
-  const my=(y1+y2)/2+Math.cos(t+phase)*7;
-  ctx.beginPath();ctx.moveTo(x1,y1);
-  ctx.quadraticCurveTo(mx,my,x2,y2);ctx.stroke();
-  return {mx,my};
-}
+// --- Draw ---
+let hoveredNode = null;
 
-function draw(){
-  t+=0.016;ctx.clearRect(0,0,W,H);
+function draw() {
+  t += 0.016;
+  // Run multiple sim steps per frame for faster convergence
+  const steps = simHeat > 0.3 ? 6 : simHeat > 0.05 ? 3 : 1;
+  for (let i = 0; i < steps; i++) stepSim();
+  ctx.clearRect(0, 0, W, H);
 
-  // Very faint dot grid
-  ctx.fillStyle='rgba(120,80,255,0.06)';
-  for(let gx=40;gx<W;gx+=70)for(let gy=40;gy<H;gy+=70){
-    ctx.beginPath();ctx.arc(gx,gy,0.8,0,7);ctx.fill();
+  ctx.save();
+  // Apply camera
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(cam.z, cam.z);
+  ctx.translate(cam.x, cam.y);
+
+  // --- Edges ---
+  const all = [...nodes, intentNode].filter(Boolean);
+
+  for (const e of edges) {
+    if (!e.a || !e.b) continue;
+    const isIntentEdge = e.intent;
+    const isActive = isIntentEdge || (e.a.matched && e.b.matched);
+    const nearHover = hoveredNode && (e.a === hoveredNode || e.b === hoveredNode);
+
+    let alpha = isIntentEdge ? 0.55 + e.b.score * 0.3 : (nearHover ? 0.3 : 0.08);
+    if (nearHover && !isIntentEdge) alpha = 0.35;
+
+    const c = dc(isIntentEdge ? e.b.domain : e.a.domain);
+    if (isIntentEdge) {
+      // Gradient from intent (purple) to agent (domain color)
+      const lg = ctx.createLinearGradient(e.a.x, e.a.y, e.b.x, e.b.y);
+      const lw = 0.6 + e.b.score * 2.8;
+      lg.addColorStop(0, `rgba(183,155,255,${alpha})`);
+      lg.addColorStop(1, `rgba(${c.rgb},${alpha})`);
+      ctx.strokeStyle = lg;
+      ctx.lineWidth = lw / cam.z;
+    } else {
+      ctx.strokeStyle = `rgba(${c.rgb},${alpha})`;
+      ctx.lineWidth = (nearHover ? 1.2 : 0.6) / cam.z;
+    }
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(e.a.x, e.a.y);
+    ctx.lineTo(e.b.x, e.b.y);
+    ctx.stroke();
   }
 
-  // Domain cluster labels (faint, behind nodes)
-  if(nodes.length>0){
-    const dlabels=domainLabelPositions();
-    dlabels.forEach(dl=>{
-      if(dl.count<1||dl.dom==='default')return;
-      const c=dc(dl.dom);
-      ctx.font='9px SF Mono,monospace';ctx.textAlign='center';
-      ctx.fillStyle=c.label+'44';
-      ctx.fillText(dl.dom.toUpperCase(),dl.x,dl.y);
-    });
+  // --- Intent node ---
+  if (intentNode) {
+    const pulse = 1 + 0.15 * Math.sin(t * 2.2);
+    const ir = 9 * pulse / cam.z;
+    const ig = ctx.createRadialGradient(intentNode.x, intentNode.y, 0, intentNode.x, intentNode.y, ir * 4);
+    ig.addColorStop(0, 'rgba(220,200,255,0.8)');
+    ig.addColorStop(0.3, 'rgba(160,120,255,0.35)');
+    ig.addColorStop(1, 'rgba(160,120,255,0)');
+    ctx.fillStyle = ig;
+    ctx.beginPath();
+    ctx.arc(intentNode.x, intentNode.y, ir * 4, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    ctx.arc(intentNode.x, intentNode.y, 4.5 / cam.z, 0, 7);
+    ctx.fill();
+    // Intent label
+    ctx.font = `bold ${11 / cam.z}px SF Mono,monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,185,255,0.85)';
+    const label = intentNode.text.length > 36 ? intentNode.text.slice(0, 36) + '…' : intentNode.text;
+    ctx.fillText('"' + label + '"', intentNode.x, intentNode.y - (ir * 2.2 + 8 / cam.z));
   }
 
-  // Central intent orb
-  const orbR=pulling?85:52;
-  const og=ctx.createRadialGradient(cx(),cy(),0,cx(),cy(),orbR*1.6);
-  og.addColorStop(0,'rgba(183,155,255,'+(pulling?0.5:0.26)+')');
-  og.addColorStop(0.45,'rgba(120,80,255,'+(pulling?0.12:0.06)+')');
-  og.addColorStop(1,'rgba(183,155,255,0)');
-  ctx.fillStyle=og;ctx.beginPath();ctx.arc(cx(),cy(),orbR*1.6,0,7);ctx.fill();
+  // --- Agent nodes ---
+  for (const nd of nodes) {
+    const isHovered = nd === hoveredNode;
+    const isMatched = nd.matched;
+    const c = dc(nd.domain);
+    const pulse = 1 + 0.08 * Math.sin(t * 1.5 + nd.phase);
+    const baseR = nd.r * pulse;
+    const drawR = (isMatched ? baseR * (1 + nd.score * 0.9) : baseR) / cam.z;
 
-  // Orb ring
-  ctx.strokeStyle='rgba(183,155,255,'+(0.22+0.1*Math.sin(t*2))+')';
-  ctx.lineWidth=1;ctx.setLineDash([3,6]);
-  ctx.beginPath();ctx.arc(cx(),cy(),orbR*0.6,0,7);ctx.stroke();
-  ctx.setLineDash([]);
+    // Glow
+    const glowR = drawR * (isHovered ? 6 : isMatched ? 5 : 3.5);
+    const glowA = isHovered ? 0.7 : isMatched ? 0.55 : 0.22;
+    const g = ctx.createRadialGradient(nd.x, nd.y, 0, nd.x, nd.y, glowR);
+    g.addColorStop(0, `rgba(${c.rgb},${glowA})`);
+    g.addColorStop(0.4, `rgba(${c.rgb},${glowA * 0.3})`);
+    g.addColorStop(1, `rgba(${c.rgb},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, glowR, 0, 7);
+    ctx.fill();
 
-  // Orb core
-  const coreAlpha=0.65+0.28*Math.sin(t*2.5);
-  ctx.fillStyle='rgba(255,255,255,'+coreAlpha+')';
-  ctx.beginPath();ctx.arc(cx(),cy(),4.5,0,7);ctx.fill();
+    // Score ring for matched nodes
+    if (isMatched && nd.score > 0) {
+      ctx.strokeStyle = `rgba(${c.rgb},0.75)`;
+      ctx.lineWidth = 1.5 / cam.z;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(nd.x, nd.y, drawR * 2.2, -Math.PI / 2, -Math.PI / 2 + nd.score * Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(${c.rgb},0.1)`;
+      ctx.lineWidth = 1 / cam.z;
+      ctx.beginPath();
+      ctx.arc(nd.x, nd.y, drawR * 2.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
-  // Intent label inside orb
-  if(intentText){
-    const trunc=intentText.length>40?intentText.slice(0,40)+'…':intentText;
-    ctx.save();ctx.globalAlpha=0.82;
-    ctx.font='11px SF Pro Display,-apple-system,sans-serif';ctx.textAlign='center';
-    ctx.fillStyle='rgba(200,185,255,1)';
-    ctx.fillText('"'+trunc+'"',cx(),cy()+orbR*0.68+18);
-    ctx.restore();
-  } else {
-    ctx.font='9.5px SF Mono,monospace';ctx.textAlign='center';
-    ctx.fillStyle='rgba(160,140,220,0.38)';
-    ctx.fillText('intent',cx(),cy()+18);
+    // Core
+    ctx.fillStyle = isMatched
+      ? `rgba(${c.rgb},0.95)`
+      : isHovered
+        ? `rgba(${c.rgb},0.9)`
+        : `rgba(${c.rgb},0.55)`;
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, drawR, 0, 7);
+    ctx.fill();
+
+    // Label — always show for matched/hovered, show for others when zoomed in
+    const showLabel = isMatched || isHovered || cam.z > 0.9;
+    if (showLabel) {
+      const fs = Math.max(9, Math.min(12, 11 / cam.z));
+      ctx.font = (isMatched ? 'bold ' : '') + fs + 'px SF Mono,monospace';
+      ctx.textAlign = 'center';
+      const labelAlpha = isMatched ? 0.95 : isHovered ? 0.9 : Math.min(0.65, cam.z * 0.7);
+      ctx.fillStyle = `rgba(220,210,255,${labelAlpha})`;
+      ctx.fillText(nd.name, nd.x, nd.y - drawR * 2.2 - 4 / cam.z);
+    }
+
+    // Rank badge
+    if (nd.rank > 0 && nd.rank <= 5) {
+      const bx = nd.x + drawR * 2.0, by = nd.y - drawR * 2.0;
+      const br = 7 / cam.z;
+      const rankRgb = nd.rank === 1 ? '255,145,200' : c.rgb;
+      ctx.fillStyle = 'rgba(5,3,15,0.9)';
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, 7); ctx.fill();
+      ctx.strokeStyle = `rgba(${rankRgb},0.85)`;
+      ctx.lineWidth = 1.2 / cam.z;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, 7); ctx.stroke();
+      ctx.font = `bold ${8 / cam.z}px SF Mono,monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(${rankRgb},0.95)`;
+      ctx.fillText('#' + nd.rank, bx, by + 3 / cam.z);
+    }
   }
 
-  // Edges from center to matched nodes
-  nodes.forEach(nd=>{
-    if(nd.score<=0)return;
-    const scoreA=0.1+nd.score*0.6;
-    const lw=0.6+nd.score*3.8;
-    const c=dc(nd.domain);
-    const lg=ctx.createLinearGradient(cx(),cy(),nd.x,nd.y);
-    lg.addColorStop(0,'rgba(183,155,255,'+scoreA+')');
-    lg.addColorStop(1,'rgba('+c.core+','+scoreA+')');
-    ctx.strokeStyle=lg;ctx.lineWidth=lw;ctx.setLineDash([]);
-    const {mx,my}=drawCurve(cx(),cy(),nd.x,nd.y,nd.phase);
-
-    // Why snippet on #1 line
-    if(nd.rank===1&&nd.why){
-      const snip=nd.why.split(' ').slice(0,5).join(' ');
-      ctx.save();ctx.globalAlpha=0.62;
-      ctx.font='9px SF Mono,monospace';ctx.textAlign='center';
-      ctx.fillStyle='rgba(255,175,200,1)';
-      ctx.fillText(snip,mx+12,my-9);
-      ctx.restore();
-    }
-  });
-
-  // Pulse dots travelling along edges
-  pulses=pulses.filter(p=>p.p<1.0);
-  pulses.forEach(p=>{
-    p.p+=p.speed;
-    const nd=p.nd;
-    // Follow the same quadratic curve
-    const mx=(cx()+nd.x)/2+Math.sin(t+nd.phase)*7;
-    const my=(cy()+nd.y)/2+Math.cos(t+nd.phase)*7;
-    const tt=p.p;
-    const px=(1-tt)*(1-tt)*cx()+2*(1-tt)*tt*mx+tt*tt*nd.x;
-    const py=(1-tt)*(1-tt)*cy()+2*(1-tt)*tt*my+tt*tt*nd.y;
-    const alpha=Math.max(0,1-Math.pow((p.p-0.5)*2.2,2));
-    const c=dc(nd.domain);
-    ctx.fillStyle='rgba('+c.glow+','+alpha+')';
-    ctx.beginPath();ctx.arc(px,py,3.5,0,7);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,'+(alpha*0.7)+')';
-    ctx.beginPath();ctx.arc(px,py,1.5,0,7);ctx.fill();
-  });
-
-  // Nodes
-  nodes.forEach(nd=>{
-    nd.x+=(nd.tx-nd.x)*0.07;nd.y+=(nd.ty-nd.y)*0.07;
-    const pulse=1+0.09*Math.sin(t*1.6+nd.phase);
-    const isMatch=nd.score>0;
-    const dimAlpha=nd.dim?0.22:1.0; // ghosted but visible — don't kill the mesh
-    const baseA=(0.28+nd.glow)*dimAlpha;
-    const rr=nd.r*pulse*(1+(isMatch?nd.score*1.4:0));
-    const c=dc(nd.domain);
-
-    // Glow halo
-    const g=ctx.createRadialGradient(nd.x,nd.y,0,nd.x,nd.y,rr*4.2);
-    const glowCol=isMatch?c.glow:c.core;
-    g.addColorStop(0,'rgba('+(isMatch?c.glow:'190,175,255')+','+baseA+')');
-    g.addColorStop(0.32,'rgba('+glowCol+','+(baseA*0.38)+')');
-    g.addColorStop(1,'rgba('+glowCol+',0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(nd.x,nd.y,rr*4.2,0,7);ctx.fill();
-
-    // Score arc ring (progress ring showing match strength)
-    if(isMatch){
-      // Bg track
-      ctx.strokeStyle='rgba('+c.core+',0.14)';ctx.lineWidth=2;ctx.setLineDash([]);
-      ctx.beginPath();ctx.arc(nd.x,nd.y,rr*2.4,0,Math.PI*2);ctx.stroke();
-      // Fill arc
-      ctx.strokeStyle='rgba('+c.glow+',0.88)';ctx.lineWidth=2.2;
-      ctx.beginPath();ctx.arc(nd.x,nd.y,rr*2.4,-Math.PI/2,-Math.PI/2+nd.score*Math.PI*2);ctx.stroke();
-    }
-
-    // Core dot
-    ctx.fillStyle='rgba(255,255,255,'+baseA+')';
-    ctx.beginPath();ctx.arc(nd.x,nd.y,rr*0.56,0,7);ctx.fill();
-
-    // Agent name label
-    const nAlpha=nd.dim?0.26:(isMatch?1.0:0.62);
-    ctx.font=(isMatch?'bold ':'')+'12px SF Mono,ui-monospace,monospace';
-    ctx.textAlign='center';
-    ctx.fillStyle='rgba(225,215,255,'+nAlpha+')';
-    ctx.fillText(nd.name,nd.x,nd.y-rr*2.6-5);
-
-    // Domain tag (colour-coded, below name)
-    if(nd.domain&&nd.domain!=='default'){
-      const dAlpha=nd.dim?0.16:(isMatch?0.62:0.38);
-      ctx.font='8.5px SF Mono,monospace';ctx.textAlign='center';
-      ctx.fillStyle='rgba('+c.core+','+dAlpha+')';
-      ctx.fillText(nd.domain,nd.x,nd.y-rr*2.6+8);
-    }
-
-    // Rank badge (#1–#5) on matched nodes
-    if(nd.rank>0&&nd.rank<=5){
-      const bx=nd.x+rr*2.0,by=nd.y-rr*2.0;
-      const rankC=nd.rank===1?'255,145,200':c.glow;
-      ctx.fillStyle='rgba(6,3,16,0.88)';
-      ctx.beginPath();ctx.arc(bx,by,9.5,0,7);ctx.fill();
-      ctx.strokeStyle='rgba('+rankC+',0.82)';ctx.lineWidth=1.3;ctx.setLineDash([]);
-      ctx.beginPath();ctx.arc(bx,by,9.5,0,7);ctx.stroke();
-      ctx.font='bold 8.5px SF Mono,monospace';ctx.textAlign='center';
-      ctx.fillStyle='rgba('+rankC+',0.95)';
-      ctx.fillText('#'+nd.rank,bx,by+3.2);
-    }
-  });
-
+  ctx.restore();
   requestAnimationFrame(draw);
 }
 
-function reset(){
-  nodes.forEach(n=>{n.score=0;n.why='';n.glow=0.35;n.dim=0;n.rank=0;n.tx=n.bx;n.ty=n.by;});
-  document.getElementById('panel').innerHTML='';
-  pulses=[];
+// --- Pull ---
+function resetMatches() {
+  nodes.forEach(n => { n.score = 0; n.rank = 0; n.why = ''; n.matched = false; });
+  edges = edges.filter(e => !e.intent);
+  intentNode = null;
 }
 
-async function pull(){
-  const iv=document.getElementById('intent').value.trim();if(!iv)return;
-  intentText=iv;pulling=true;reset();
-  document.getElementById('statt').textContent='pulling…';
-  try{
-    const r=await fetch('/pull',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:iv,k:5})});
-    const j=await r.json();const ms=j.matches||[];
-    const top=ms.length?ms[0].score:0;
-    nodes.forEach(n=>n.dim=1);
-    const panel=document.getElementById('panel');panel.innerHTML='';
-    ms.forEach((m,i)=>{
-      const nd=nodes.find(n=>n.addr===m.address);
-      if(nd){
-        nd.score=m.score;nd.why=m.why||'';nd.dim=0;nd.glow=0.88;nd.rank=i+1;
-        const ang=Math.atan2(nd.by-cy(),nd.bx-cx());
-        const dist=105+i*68;
-        nd.tx=cx()+Math.cos(ang)*dist;nd.ty=cy()+Math.sin(ang)*dist;
-        setTimeout(()=>spawnPulse(nd,i),i*160);
-      }
-      const el=document.createElement('div');el.className='m'+(i===0?' top':'');
-      el.innerHTML='<span class="sc">'+m.score.toFixed(3)+'</span><span class="ad">'+shortName(m.address)+'</span><div class="wy">'+(m.why||'')+'</div>';
-      panel.appendChild(el);setTimeout(()=>el.classList.add('show'),80+i*90);
+async function pull() {
+  const iv = document.getElementById('intent').value.trim();
+  if (!iv) return;
+  resetMatches();
+  document.getElementById('statt').textContent = 'pulling…';
+  try {
+    const r = await fetch('/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intent: iv, k: 5 }) });
+    const j = await r.json();
+    const ms = j.matches || [];
+    const top = ms.length ? ms[0].score : 0;
+
+    // Place intent node near center in world space
+    intentNode = { x: -20, y: 10, vx: 0, vy: 0, text: iv, pinned: false };
+
+    ms.forEach((m, i) => {
+      const nd = nodes.find(n => n.id === m.address);
+      if (!nd) return;
+      nd.score = m.score; nd.rank = i + 1; nd.why = m.why || ''; nd.matched = true;
+      edges.push({ a: intentNode, b: nd, intent: true });
     });
-    document.getElementById('statt').textContent=j.gated+' gated · '+ms.length+' ranked · top '+top.toFixed(2);
-  }catch(e){document.getElementById('statt').textContent='pull failed';}
-  setTimeout(()=>pulling=false,1500);
+
+    reheat(0.6);
+    document.getElementById('statt').textContent = j.gated + ' gated · ' + ms.length + ' matched · top ' + top.toFixed(2);
+  } catch (e) {
+    document.getElementById('statt').textContent = 'pull failed';
+  }
 }
 
-// Hover tooltip
-const tooltip=document.getElementById('tooltip');
-cv.addEventListener('mousemove',e=>{
-  const mx=e.clientX,my=e.clientY;
-  let hit=null;
-  for(const nd of nodes){const dx=nd.x-mx,dy=nd.y-my;if(dx*dx+dy*dy<26*26){hit=nd;break;}}
-  if(hit){
-    const fp=hit.fp||{};
-    const lines=[];
-    if(hit.domain)lines.push('domain: '+hit.domain);
-    const tasks=hit.tasks||(fp.task_types||[]).join(', ');
-    if(tasks)lines.push('tasks: '+tasks);
-    if(hit.latency)lines.push('latency: '+hit.latency);
-    if(hit.trust)lines.push('trust: '+hit.trust);
-    if(hit.score>0)lines.push('score: '+hit.score.toFixed(3)+' · rank #'+hit.rank);
-    if(hit.why)lines.push('\n"'+hit.why+'"');
-    document.getElementById('tt-name').textContent=hit.name;
-    document.getElementById('tt-detail').textContent=lines.join('\n');
-    tooltip.style.display='block';
-    tooltip.style.left=Math.min(mx+18,W-250)+'px';
-    tooltip.style.top=Math.max(my-10,8)+'px';
-    cv.style.cursor='pointer';
+// --- Interaction ---
+let drag = null, panStart = null;
+
+function nodeAt(sx, sy) {
+  const w = toWorld(sx, sy);
+  let best = null, bestD = 16 / cam.z; // hit radius in world px
+  for (const nd of nodes) {
+    const dx = nd.x - w.x, dy = nd.y - w.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestD) { bestD = d; best = nd; }
+  }
+  // Also check intent node
+  if (intentNode) {
+    const dx = intentNode.x - w.x, dy = intentNode.y - w.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 12 / cam.z) best = intentNode;
+  }
+  return best;
+}
+
+cv.addEventListener('mousedown', e => {
+  const hit = nodeAt(e.clientX, e.clientY);
+  if (hit) {
+    drag = { node: hit, offX: hit.x - toWorld(e.clientX, e.clientY).x, offY: hit.y - toWorld(e.clientX, e.clientY).y };
+    hit.pinned = true; hit.vx = 0; hit.vy = 0;
+    cv.style.cursor = 'grabbing';
   } else {
-    tooltip.style.display='none';
-    cv.style.cursor='default';
+    panStart = { mx: e.clientX, my: e.clientY, cx: cam.x, cy: cam.y };
+    cv.style.cursor = 'grabbing';
   }
 });
-cv.addEventListener('mouseleave',()=>{tooltip.style.display='none';});
 
-document.getElementById('go').onclick=pull;
-document.getElementById('intent').addEventListener('keydown',e=>{if(e.key==='Enter')pull();});
-const examples=['people owe me money and I need to collect it fast','plan a bachelorette weekend for my group','pick the cheapest model for a quick classification','find a venue for 14 people on a budget'];
-const cw=document.getElementById('chips');
-examples.forEach(x=>{const c=document.createElement('div');c.className='chip';c.textContent=x;c.onclick=()=>{document.getElementById('intent').value=x;pull();};cw.appendChild(c);});
-load();draw();
+cv.addEventListener('mousemove', e => {
+  if (drag) {
+    const w = toWorld(e.clientX, e.clientY);
+    drag.node.x = w.x + drag.offX;
+    drag.node.y = w.y + drag.offY;
+    reheat(0.15);
+  } else if (panStart) {
+    cam.x = panStart.cx + (e.clientX - panStart.mx) / cam.z;
+    cam.y = panStart.cy + (e.clientY - panStart.my) / cam.z;
+  } else {
+    // Hover
+    const hit = nodeAt(e.clientX, e.clientY);
+    hoveredNode = (hit && hit !== intentNode) ? hit : null;
+    cv.style.cursor = hoveredNode ? 'pointer' : 'default';
+    if (hoveredNode) showTip(e, hoveredNode);
+    else hideTip();
+  }
+});
+
+cv.addEventListener('mouseup', e => {
+  if (drag) { drag.node.pinned = false; drag = null; }
+  panStart = null;
+  cv.style.cursor = hoveredNode ? 'pointer' : 'default';
+});
+
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.09;
+  const before = toWorld(e.clientX, e.clientY);
+  cam.z = Math.max(0.2, Math.min(4.0, cam.z * factor));
+  const after = toWorld(e.clientX, e.clientY);
+  cam.x += after.x - before.x;
+  cam.y += after.y - before.y;
+}, { passive: false });
+
+cv.addEventListener('dblclick', e => {
+  // Double-click: reset camera
+  cam = { x: 0, y: 0, z: 1.0 };
+});
+
+// Tooltip
+const tip = document.getElementById('tip');
+function showTip(e, nd) {
+  const lines = [];
+  if (nd.domain) lines.push('domain: ' + nd.domain);
+  if (nd.tasks) lines.push('tasks: ' + nd.tasks);
+  if (nd.latency) lines.push('latency: ' + nd.latency);
+  if (nd.trust) lines.push('trust: ' + nd.trust);
+  if (nd.score > 0) lines.push('score: ' + nd.score.toFixed(3) + '  rank #' + nd.rank);
+  if (nd.why) lines.push('\n"' + nd.why + '"');
+  document.getElementById('tip-name').textContent = nd.name;
+  document.getElementById('tip-body').textContent = lines.join('\n') || nd.id;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 16, W - 240) + 'px';
+  tip.style.top = Math.max(e.clientY - 12, 8) + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+cv.addEventListener('mouseleave', hideTip);
+
+// Input
+document.getElementById('go').onclick = pull;
+document.getElementById('intent').addEventListener('keydown', e => { if (e.key === 'Enter') pull(); });
+const examples = ['people owe me money and I need to collect it fast', 'plan a bachelorette weekend for my group', 'pick the cheapest model for a quick classification', 'find a venue for 14 people on a budget'];
+const cw = document.getElementById('chips');
+examples.forEach(x => {
+  const c = document.createElement('div');
+  c.className = 'chip'; c.textContent = x;
+  c.onclick = () => { document.getElementById('intent').value = x; pull(); };
+  cw.appendChild(c);
+});
+
+load(); draw();
 </script></body></html>

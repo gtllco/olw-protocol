@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "olw-protocol"
-version = "1.0.3"
+version = "1.1.0"
 description = "The routing protocol for AI agents"
 readme = "README.md"
 license = {text = "MIT"}

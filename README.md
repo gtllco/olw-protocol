@@ -95,8 +95,7 @@ Four of eight OLW axes do not exist in A2A.
     "output_formats": ["json", "text"],
     "context_depth": "deep",
     "latency_class": "batch",
-    "trust_level": "high",
-    "soul_compatible": true
+    "trust_level": "high"
   }
 }
 ```
@@ -127,7 +126,7 @@ Source: [`sdk/python/`](sdk/python/) · `pip install olw-protocol` · `import ol
 ## Status
 
 `v1.0.3` — Layer 1 (protocol + SDK + resolution index) live.
-Index is seeded with agents from the GTLL ecosystem. Third-party registrations open at `https://olw.gtll.app`.
+Index is seeded with agents crawled from HuggingFace Spaces and open registrations. Third-party registrations open at `https://olw.gtll.app`.
 
 ## License
 
