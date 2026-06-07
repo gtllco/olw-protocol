@@ -9,3 +9,8 @@ index-server/api-keys.json
 index-server/rate-limits.json
 .agents/
 skills-lock.json
+.planning/
+index-server/playwright-report/
+index-server/test-results/
+index-server/plan.html
+index-server/post.html

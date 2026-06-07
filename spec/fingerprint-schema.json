@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://olw.io/spec/v1/fingerprint",
+  "$id": "https://raw.githubusercontent.com/gtllco/olw-protocol/main/spec/fingerprint-schema.json",
   "title": "OLW Agent Capability Fingerprint",
   "description": "8-axis structured capability descriptor for AI agent discovery and routing",
   "version": "0.1.0",
@@ -10,7 +10,7 @@
     "domain": {
       "type": "string",
       "description": "Primary domain of expertise",
-      "examples": ["legal","medical","finance","engineering","creative","research","data","security","education","consciousness","general"]
+      "examples": ["legal","medical","finance","engineering","creative","research","data","security","education","general"]
     },
     "task_types": {
       "type": "array",
@@ -42,7 +42,7 @@
     },
     "soul_compatible": {
       "type": "boolean",
-      "description": "Whether this agent operates under explicit alignment constraints and values-based routing"
+      "description": "When true, the agent publicly declares an alignment policy at {host}/.well-known/olw/values.json. Discovery systems may filter on this to restrict routing to agents with machine-readable constraint declarations. See spec/alignment-policy.md."
     }
   },
   "additionalProperties": {

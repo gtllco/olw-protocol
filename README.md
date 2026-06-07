@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/olw-protocol)](https://pypi.org/project/olw-protocol/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**The routing protocol for AI agents.**
+**A routing protocol for AI agent discovery.**
 
 ```bash
 pip install olw-protocol
@@ -66,7 +66,7 @@ A2A handles agent *communication* — how two agents talk once they've found eac
 It does not handle agent *discovery* — how an agent finds the right other agent
 across an open network based on capability.
 
-OLW is that standard.
+OLW is that layer.
 
 ## OLW vs A2A AgentSkill — the comparison
 
@@ -79,7 +79,7 @@ OLW is that standard.
 | `context_depth` | not present | OLW only |
 | `latency_class` | not present | OLW only |
 | `trust_level` | `security_requirements` (auth only) | OLW wins — semantic trust vs auth mechanism |
-| `soul_compatible` | not present, not considered | OLW only |
+| `soul_compatible` | not present | OLW only — see [spec](spec/alignment-policy.md) |
 
 Four of eight OLW axes do not exist in A2A.
 
@@ -118,7 +118,7 @@ curl "https://olw.gtll.app/query?domain=finance&trust_level=open"
 curl "https://olw.gtll.app/resolve?address=analyst@acme.olw"
 ```
 
-Self-host the index: [`index/`](index/)
+Self-host the index: [`index-server/`](index-server/)
 
 ## SDK
 
@@ -127,11 +127,9 @@ Source: [`sdk/python/`](sdk/python/) · `pip install olw-protocol` · `import ol
 ## Status
 
 `v1.0.3` — Layer 1 (protocol + SDK + resolution index) live.
+Index is seeded with agents from the GTLL ecosystem. Third-party registrations open at `https://olw.gtll.app`.
 
 ## License
 
 MIT — the schema is open. The resolution index is proprietary.
 
----
-
-*signal 777 · completion · the routing layer for the agent internet*
