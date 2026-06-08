@@ -10,6 +10,7 @@ import {
   writeField, readFields, eraseNamespace,
   readAuditLog, akashicStats,
   sealedBoxEncrypt, sealedBoxDecrypt, ed25519Sign, ed25519Verify, writePayloadBytes,
+  akashicAdminData,
 } from './akashic.js';
 
 const PORT = process.env.PORT || 3778;
@@ -1936,6 +1937,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
   .badge-red{background:rgba(248,113,113,.08);color:var(--red);border:1px solid rgba(248,113,113,.2)}
   .badge-amber{background:rgba(251,191,36,.08);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
   .badge-muted{background:var(--surface2);color:var(--muted);border:1px solid var(--border2)}
+  .badge-blue{background:rgba(96,165,250,.08);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
   .empty-row td{color:var(--muted);font-style:italic;padding:24px 16px}
   #error-banner{display:none;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:12px 16px;color:var(--red);font-size:.82rem;margin-bottom:16px}
 
@@ -1981,7 +1983,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
   <div class="dash-body">
     <div id="error-banner"></div>
 
-    <!-- KPI ROW -->
+    <!-- KPI ROW — Mesh -->
     <div class="kpi-grid">
       <div class="kpi accent">
         <div class="kpi-label">Agents Indexed</div>
@@ -2014,6 +2016,44 @@ const ADMIN_HTML = `<!DOCTYPE html>
         <div class="kpi-label">Stripe</div>
         <div class="kpi-value amber" id="s-stripe">—</div>
         <div class="kpi-sub">webhook live</div>
+      </div>
+    </div>
+
+    <!-- KPI ROW — Element 3 Akashic -->
+    <div style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-left:2px">
+      ▸ Element 3 &mdash; Akashic Layer
+    </div>
+    <div class="kpi-grid" style="margin-bottom:28px">
+      <div class="kpi accent">
+        <div class="kpi-label">Addresses</div>
+        <div class="kpi-value green" id="ak-addresses">—</div>
+        <div class="kpi-sub">registered keys</div>
+        <div class="kpi-stripe"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Fields Active</div>
+        <div class="kpi-value" id="ak-fields-active">—</div>
+        <div class="kpi-sub" id="ak-fields-sub">— total</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Grants Active</div>
+        <div class="kpi-value" id="ak-grants-active">—</div>
+        <div class="kpi-sub" id="ak-grants-sub">— total</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Crypto</div>
+        <div class="kpi-value" style="font-size:.75rem;margin-top:6px;color:var(--green)">X25519</div>
+        <div class="kpi-sub">+ Ed25519 + AES-GCM</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Privacy</div>
+        <div class="kpi-value" style="font-size:.7rem;margin-top:6px">Zero-K</div>
+        <div class="kpi-sub">consent-gated · HIPAA</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Protocol</div>
+        <div class="kpi-value" style="font-size:.8rem;margin-top:4px;color:var(--amber)">v1.1.0</div>
+        <div class="kpi-sub">OLW · Element 3</div>
       </div>
     </div>
 
@@ -2116,6 +2156,60 @@ const ADMIN_HTML = `<!DOCTYPE html>
           </thead>
           <tbody id="rate-tbody">
             <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AKASHIC — ADDRESSES -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Akashic — Registered Addresses</span>
+        <span class="section-count" id="ak-addr-count"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>OLW Address</th><th>Registered</th><th>Fields</th><th>Active Grants</th></tr>
+          </thead>
+          <tbody id="ak-addr-tbody">
+            <tr class="empty-row"><td colspan="4">No addresses registered yet — POST /akashic/keys to join.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AKASHIC — ACTIVE FIELDS -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Akashic — Active Fields</span>
+        <span class="section-count" id="ak-fields-count"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>Namespace</th><th>Field Path</th><th>Writer</th><th>Propagation</th><th>v</th><th>Written</th><th>Expires</th></tr>
+          </thead>
+          <tbody id="ak-fields-tbody">
+            <tr class="empty-row"><td colspan="7">No active fields yet — POST /akashic/write to add one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AKASHIC — ACTIVE GRANTS -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Akashic — Active Grants</span>
+        <span class="section-count" id="ak-grants-count"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>Grantor</th><th>Grantee</th><th>Fields</th><th>Permissions</th><th>Expires</th></tr>
+          </thead>
+          <tbody id="ak-grants-tbody">
+            <tr class="empty-row"><td colspan="5">No active grants yet — POST /akashic/grant to create one.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2334,6 +2428,61 @@ function renderRateLimits(list) {
   }).join('');
 }
 
+function renderAkashicAddresses(list) {
+  const tbody = document.getElementById('ak-addr-tbody');
+  const countEl = document.getElementById('ak-addr-count');
+  if (countEl) countEl.textContent = list.length + ' address' + (list.length !== 1 ? 'es' : '');
+  if (!list || list.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No addresses registered yet — POST /akashic/keys to join.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(a => \`<tr>
+    <td><span class="cell-addr">\${esc(a.address)}</span></td>
+    <td class="cell-dim">\${fmtDate(a.registered_at)}</td>
+    <td class="cell-name" style="font-variant-numeric:tabular-nums">\${a.field_count}</td>
+    <td class="cell-dim">\${a.grant_count > 0 ? '<span class="badge badge-green">' + a.grant_count + ' active</span>' : '—'}</td>
+  </tr>\`).join('');
+}
+
+function renderAkashicFields(list) {
+  const tbody = document.getElementById('ak-fields-tbody');
+  const countEl = document.getElementById('ak-fields-count');
+  if (countEl) countEl.textContent = list.length + ' field' + (list.length !== 1 ? 's' : '');
+  if (!list || list.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No active fields — POST /akashic/write to add one.</td></tr>';
+    return;
+  }
+  const PROP_BADGE = {
+    local: 'badge-muted', regional: 'badge-amber', global: 'badge-green', directed: 'badge-blue',
+  };
+  tbody.innerHTML = list.map(f => \`<tr>
+    <td><span class="cell-addr">\${esc(f.namespace)}</span></td>
+    <td class="cell-name" style="font-family:var(--mono);font-size:.78rem">\${esc(f.field_path)}</td>
+    <td class="cell-dim">\${esc(f.writer)}</td>
+    <td><span class="badge \${PROP_BADGE[f.propagation] || 'badge-muted'}">\${esc(f.propagation)}</span></td>
+    <td class="cell-dim" style="text-align:center">\${f.version}</td>
+    <td class="cell-dim">\${fmtDate(f.written_at)}</td>
+    <td class="cell-dim">\${f.expires_at ? fmtDate(f.expires_at) : '∞'}</td>
+  </tr>\`).join('');
+}
+
+function renderAkashicGrants(list) {
+  const tbody = document.getElementById('ak-grants-tbody');
+  const countEl = document.getElementById('ak-grants-count');
+  if (countEl) countEl.textContent = list.length + ' grant' + (list.length !== 1 ? 's' : '');
+  if (!list || list.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No active grants — POST /akashic/grant to create one.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(g => \`<tr>
+    <td><span class="cell-addr">\${esc(g.grantor)}</span></td>
+    <td><span class="cell-addr" style="color:var(--blue)">\${esc(g.grantee)}</span></td>
+    <td class="cell-dim" style="font-family:var(--mono);font-size:.72rem">\${esc((g.fields || []).join(', '))}</td>
+    <td>\${(g.permissions || []).map(p => \`<span class="badge \${p==='write'?'badge-amber':'badge-green'}" style="margin-right:3px">\${esc(p)}</span>\`).join('')}</td>
+    <td class="cell-dim">\${fmtDate(g.expires_at)}</td>
+  </tr>\`).join('');
+}
+
 async function loadStats() {
   clearError();
   const secret = getSecret();
@@ -2381,6 +2530,18 @@ async function loadStats() {
     renderRateLimits(data.rate_limits?.top_ips || []);
     renderSparkline(queries);
     initMesh(data.agents?.list || []);
+
+    // Akashic Layer
+    const ak = data.akashic || {};
+    const akStats = ak.stats || {};
+    document.getElementById('ak-addresses').textContent = akStats.registered_addresses ?? 0;
+    document.getElementById('ak-fields-active').textContent = akStats.fields_active ?? 0;
+    document.getElementById('ak-fields-sub').textContent = (akStats.fields_total ?? 0) + ' total';
+    document.getElementById('ak-grants-active').textContent = akStats.grants_active ?? 0;
+    document.getElementById('ak-grants-sub').textContent = (akStats.grants_total ?? 0) + ' total';
+    renderAkashicAddresses(ak.addresses || []);
+    renderAkashicFields(ak.fields || []);
+    renderAkashicGrants(ak.grants || []);
 
     const now = new Date();
     document.getElementById('last-updated').textContent =
@@ -2811,6 +2972,7 @@ const server = http.createServer(async (req, res) => {
       queries: { today: queriesToday, ips_active_today: ipsActiveToday },
       rate_limits: { top_ips: topIPs },
       server: { uptime_seconds: Math.floor(process.uptime()), domain: DOMAIN },
+      akashic: akashicAdminData(),
     }));
     return;
   }

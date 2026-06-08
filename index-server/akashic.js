@@ -487,3 +487,44 @@ export function akashicStats() {
     grants_active: activeGrants,
   };
 }
+
+/** Full Akashic data for the admin portal — address list, active fields, active grants. */
+export function akashicAdminData() {
+  const fields  = loadFields();
+  const grants  = loadGrants();
+  const keys    = loadPubkeys();
+  const now = new Date();
+
+  const addresses = Object.values(keys.keys).map(k => ({
+    address: k.address,
+    registered_at: k.registered_at,
+    field_count: Object.values(fields.fields).filter(f => f.namespace === k.address).length,
+    grant_count: Object.values(grants.grants).filter(g => g.grantor === k.address && !g.revoked && new Date(g.expires_at) > now).length,
+  }));
+
+  const activeFields = Object.values(fields.fields)
+    .filter(f => !f.expires_at || new Date(f.expires_at) > now)
+    .map(f => ({
+      namespace: f.namespace,
+      field_path: f.field_path,
+      version: f.version,
+      writer: f.writer,
+      propagation: f.propagation,
+      written_at: f.written_at,
+      expires_at: f.expires_at,
+    }));
+
+  const activeGrants = Object.values(grants.grants)
+    .filter(g => !g.revoked && new Date(g.expires_at) > now)
+    .map(g => ({
+      id: g.id,
+      grantor: g.grantor,
+      grantee: g.grantee,
+      fields: g.fields,
+      permissions: g.permissions,
+      expires_at: g.expires_at,
+      created_at: g.created_at,
+    }));
+
+  return { stats: akashicStats(), addresses, fields: activeFields, grants: activeGrants };
+}
