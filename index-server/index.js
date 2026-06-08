@@ -67,6 +67,189 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const stripe = STRIPE_KEY ? new Stripe(STRIPE_KEY, { apiVersion: '2024-06-20' }) : null;
 
+// ── MCP remote server state ───────────────────────────────────────────────────
+const mcpSessions = new Map(); // sessionId → SSE response object
+
+const MCP_TOOLS = [
+  {
+    name: 'akashic_keygen',
+    description: 'Generate a fresh OLW keypair (X25519 + Ed25519). Returns pub + priv keys. Store private keys — server never retains them.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'akashic_register_keys',
+    description: 'Register your public keys with the OLW Akashic Layer for an OLW address. Required before writing fields or creating grants.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        address:     { type: 'string', description: 'OLW address e.g. my-agent@owner.olw' },
+        x25519_pub:  { type: 'string', description: 'base64url SPKI DER X25519 public key' },
+        ed25519_pub: { type: 'string', description: 'base64url SPKI DER Ed25519 public key' },
+      },
+      required: ['address', 'x25519_pub', 'ed25519_pub'],
+    },
+  },
+  {
+    name: 'akashic_write',
+    description: 'Encrypt a value and write it as an Akashic field. Pass ed25519_priv to sign the write. Seals to recipient\'s registered public key.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        writer:      { type: 'string', description: 'OLW address of writing agent' },
+        ed25519_priv:{ type: 'string', description: 'base64url PKCS8 DER Ed25519 private key for signing' },
+        namespace:   { type: 'string', description: 'OLW address owning this field namespace' },
+        field_path:  { type: 'string', description: 'Field path e.g. session.context.summary' },
+        value:       { type: 'string', description: 'Plaintext value to encrypt and store' },
+        recipient:   { type: 'string', description: 'OLW address to encrypt to (default: namespace owner)' },
+        propagation: { type: 'string', enum: ['local','regional','global','directed'], description: 'Propagation scope' },
+        ttl:         { type: 'number', description: 'TTL in seconds (optional)' },
+      },
+      required: ['writer', 'ed25519_priv', 'namespace', 'field_path', 'value'],
+    },
+  },
+  {
+    name: 'akashic_read',
+    description: 'Read Akashic fields for a requester. Returns ciphertext. Pass x25519_priv to decrypt automatically.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        requester:   { type: 'string', description: 'OLW address of reading agent' },
+        x25519_priv: { type: 'string', description: 'base64url PKCS8 DER X25519 private key for decryption (optional)' },
+        namespace:   { type: 'string', description: 'Namespace filter (optional)' },
+        field_paths: { type: 'array', items: { type: 'string' }, description: 'Field path filter (optional)' },
+      },
+      required: ['requester'],
+    },
+  },
+  {
+    name: 'akashic_grant',
+    description: 'Create a signed consent grant allowing another agent to access your fields.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        grantor:     { type: 'string', description: 'Your OLW address' },
+        ed25519_priv:{ type: 'string', description: 'Your Ed25519 private key for signing the grant' },
+        grantee:     { type: 'string', description: 'OLW address receiving access' },
+        fields:      { type: 'array', items: { type: 'string' }, description: 'Field patterns e.g. ["session.*"]' },
+        permissions: { type: 'array', items: { type: 'string', enum: ['read','write','subscribe'] } },
+        expires_at:  { type: 'string', description: 'ISO 8601 expiry e.g. 2027-01-01T00:00:00Z' },
+      },
+      required: ['grantor', 'ed25519_priv', 'grantee', 'fields', 'permissions', 'expires_at'],
+    },
+  },
+  {
+    name: 'akashic_revoke',
+    description: 'Instantly revoke a consent grant.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        grant_id:        { type: 'string' },
+        revoker_address: { type: 'string' },
+        ed25519_priv:    { type: 'string', description: 'Your Ed25519 private key to sign the revocation' },
+      },
+      required: ['grant_id', 'revoker_address', 'ed25519_priv'],
+    },
+  },
+  {
+    name: 'akashic_audit',
+    description: 'Read the append-only audit log for an OLW address.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        address: { type: 'string' },
+        limit:   { type: 'number', description: 'Max entries (default 50, max 500)' },
+      },
+      required: ['address'],
+    },
+  },
+  {
+    name: 'akashic_stats',
+    description: 'Get public Akashic Layer statistics — registered addresses, fields, grants.',
+    inputSchema: { type: 'object', properties: {}, required: [] },
+  },
+];
+
+async function executeMcpTool(name, args) {
+  const BASE = 'http://localhost:' + PORT;
+  const call = async (method, path, body) => {
+    const r = await fetch(`${BASE}${path}`, {
+      method, headers: { 'Content-Type': 'application/json' },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return r.json();
+  };
+
+  switch (name) {
+    case 'akashic_keygen':
+      return call('POST', '/akashic/keygen', {});
+
+    case 'akashic_register_keys':
+      return call('POST', '/akashic/keys', args);
+
+    case 'akashic_write': {
+      const { writer, ed25519_priv, namespace, field_path, value, recipient, propagation = 'local', ttl } = args;
+      const recipientAddr = recipient || namespace;
+      const sealRes = await call('POST', '/akashic/seal', { plaintext: value, recipient_address: recipientAddr });
+      if (!sealRes.ok) return { error: `seal failed: ${sealRes.error}` };
+      const ciphertext = sealRes.ciphertext;
+      let version = 1;
+      try {
+        const readRes = await call('POST', '/akashic/read', { requester: writer, namespace, field_paths: [field_path] });
+        if (readRes.ok && readRes.fields?.length) version = readRes.fields[0].version + 1;
+      } catch {}
+      const payload = Buffer.from(`${namespace}|${field_path}|${ciphertext}|${version}`);
+      const privKey = crypto.createPrivateKey({ key: Buffer.from(ed25519_priv, 'base64url'), format: 'der', type: 'pkcs8' });
+      const signature = crypto.sign(null, payload, privKey).toString('base64url');
+      const body = { writer, namespace, field_path, ciphertext, signature, propagation };
+      if (ttl != null) body.ttl = ttl;
+      return call('POST', '/akashic/write', body);
+    }
+
+    case 'akashic_read': {
+      const { requester, x25519_priv, namespace, field_paths } = args;
+      const readRes = await call('POST', '/akashic/read', {
+        requester, ...(namespace && { namespace }), ...(field_paths && { field_paths }),
+      });
+      if (x25519_priv && readRes.ok && readRes.fields) {
+        for (const f of readRes.fields) {
+          try {
+            const openRes = await call('POST', '/akashic/open', { ciphertext: f.ciphertext, x25519_priv });
+            if (openRes.ok) { f.plaintext = openRes.plaintext; delete f.ciphertext; }
+          } catch {}
+        }
+      }
+      return readRes;
+    }
+
+    case 'akashic_grant': {
+      const { grantor, ed25519_priv, grantee, fields, permissions, expires_at } = args;
+      const grantBody = { grantor, grantee, fields, permissions, expires_at };
+      const canonical = Buffer.from(JSON.stringify(
+        Object.fromEntries(['grantor','grantee','fields','permissions','expires_at'].map(k => [k, grantBody[k]]))
+      ));
+      const privKey = crypto.createPrivateKey({ key: Buffer.from(ed25519_priv, 'base64url'), format: 'der', type: 'pkcs8' });
+      const signature = crypto.sign(null, canonical, privKey).toString('base64url');
+      return call('POST', '/akashic/grant', { grant: grantBody, signature });
+    }
+
+    case 'akashic_revoke': {
+      const { grant_id, revoker_address, ed25519_priv } = args;
+      const privKey = crypto.createPrivateKey({ key: Buffer.from(ed25519_priv, 'base64url'), format: 'der', type: 'pkcs8' });
+      const revocation_signature = crypto.sign(null, Buffer.from(grant_id), privKey).toString('base64url');
+      return call('DELETE', '/akashic/grant', { grant_id, revoker_address, revocation_signature });
+    }
+
+    case 'akashic_audit':
+      return call('GET', `/akashic/audit?address=${encodeURIComponent(args.address)}&limit=${args.limit || 50}`);
+
+    case 'akashic_stats':
+      return call('GET', '/akashic/stats');
+
+    default:
+      return { error: `unknown tool: ${name}` };
+  }
+}
+
 // 555 live pull visualization — the mesh thinks out loud. Loaded once at boot.
 const MESH_PATH = '/opt/olw/index-server/mesh.html';
 const MESH_HTML = existsSync(MESH_PATH) ? readFileSync(MESH_PATH, 'utf8') : '<h1>mesh.html missing</h1>';
@@ -3446,7 +3629,102 @@ You don't need a library. You don't need a key. You just need to speak.`;
     return;
   }
 
-  // ── End Akashic Layer ────────────────────────────────────────────────────────
+  // ── MCP Remote Server (HTTP + SSE transport, spec 2024-11-05) ───────────────
+  //
+  // Any Claude Code web session, LangGraph agent, or hosted model can connect:
+  //   { "mcpServers": { "olw-akashic": { "url": "https://olw.gtll.app/mcp" } } }
+  //
+  // Protocol:
+  //   GET  /mcp          → SSE stream; first event is "endpoint" with POST URL
+  //   POST /mcp?session= → client sends JSON-RPC 2.0 requests here
+  //
+  if (req.method === 'GET' && url.pathname === '/mcp') {
+    const sessionId = crypto.randomBytes(12).toString('hex');
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    // Register this SSE stream so POST handler can write back to it
+    mcpSessions.set(sessionId, res);
+
+    // Tell the client where to POST its JSON-RPC messages
+    const postUrl = `${DOMAIN}/mcp?session=${sessionId}`;
+    res.write(`event: endpoint\ndata: ${JSON.stringify({ uri: postUrl })}\n\n`);
+
+    // Keepalive ping every 25s
+    const ping = setInterval(() => {
+      if (!res.writableEnded) res.write(': ping\n\n');
+      else clearInterval(ping);
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(ping);
+      mcpSessions.delete(sessionId);
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/mcp') {
+    const sessionId = url.searchParams.get('session');
+    const sseRes = sessionId ? mcpSessions.get(sessionId) : null;
+
+    const { parsed: rpc } = await parseBody(req);
+    res.writeHead(202); res.end(); // ACK immediately; reply goes over SSE
+
+    const { id, method, params } = rpc || {};
+
+    const send = (payload) => {
+      if (sseRes && !sseRes.writableEnded) {
+        sseRes.write(`event: message\ndata: ${JSON.stringify(payload)}\n\n`);
+      }
+    };
+
+    if (method === 'initialize') {
+      send({
+        jsonrpc: '2.0', id,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'olw-akashic', version: '1.2.0' },
+        },
+      });
+      return;
+    }
+
+    if (method === 'notifications/initialized') { return; } // no-op
+
+    if (method === 'ping') { send({ jsonrpc: '2.0', id, result: {} }); return; }
+
+    if (method === 'tools/list') {
+      send({ jsonrpc: '2.0', id, result: { tools: MCP_TOOLS } });
+      return;
+    }
+
+    if (method === 'tools/call') {
+      const { name, arguments: args } = params || {};
+      try {
+        const result = await executeMcpTool(name, args || {});
+        send({
+          jsonrpc: '2.0', id,
+          result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
+        });
+      } catch (e) {
+        send({
+          jsonrpc: '2.0', id,
+          result: { content: [{ type: 'text', text: JSON.stringify({ error: e.message }) }], isError: true },
+        });
+      }
+      return;
+    }
+
+    send({ jsonrpc: '2.0', id, error: { code: -32601, message: `method not found: ${method}` } });
+    return;
+  }
+
+  // ── End Akashic Layer + MCP ───────────────────────────────────────────────────
 
   res.writeHead(404);
   res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /post','GET /admin','GET /admin/stats','GET /agent-briefing','GET /llm-context','GET /llms.txt','GET /robots.txt','GET /.well-known/ai-plugin.json','POST /akashic/keygen','POST /akashic/keys','GET /akashic/keys','POST /akashic/grant','DELETE /akashic/grant','POST /akashic/write','POST /akashic/read','DELETE /akashic/erase','GET /akashic/audit','GET /akashic/stats','POST /akashic/seal','POST /akashic/open'] }));
