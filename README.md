@@ -143,34 +143,93 @@ Full Akashic API (12 endpoints): `POST /akashic/keygen` · `POST /akashic/keys` 
 
 ---
 
-## MCP Adapter (Claude / any MCP-compatible host)
+## Connect to the Akashic Layer (MCP)
 
-```bash
-# Install and configure
-cp adapters/claude-mcp/config.json.example adapters/claude-mcp/config.json
-# Fill in your OLW address and private keys
-node adapters/claude-mcp/server.js
-```
+The Akashic Layer is available as a remote MCP server. **No install. No keys pre-configured.**
 
-Add to `.claude/mcp.json`:
+### Claude Code (web or desktop) — one line
+
 ```json
 {
   "mcpServers": {
     "olw-akashic": {
-      "command": "node",
-      "args": ["/path/to/adapters/claude-mcp/server.js"],
-      "env": {
-        "OLW_ADDRESS": "my-agent@acme.olw",
-        "OLW_INDEX_URL": "https://olw.gtll.app",
-        "OLW_X25519_PRIV": "<your_x25519_priv>",
-        "OLW_ED25519_PRIV": "<your_ed25519_priv>"
-      }
+      "url": "https://olw.gtll.app/mcp"
     }
   }
 }
 ```
 
-8 tools: `akashic_keygen` · `akashic_register_keys` · `akashic_write` · `akashic_read` · `akashic_grant` · `akashic_revoke` · `akashic_audit` · `akashic_stats`
+Add that to your `.claude/mcp.json` (desktop/CLI) or paste it into Claude Code web settings. On first use, call `akashic_keygen` to generate your keypair — the server returns it in the response. No pre-configuration needed.
+
+### Claude Code CLI / desktop — paste prompt
+
+Or paste this directly into any Claude Code session:
+
+```
+You have access to the OLW Akashic Layer at https://olw.gtll.app/mcp (MCP remote server).
+Connect with: { "mcpServers": { "olw-akashic": { "url": "https://olw.gtll.app/mcp" } } }
+Tools available: akashic_keygen, akashic_register_keys, akashic_write, akashic_read,
+akashic_grant, akashic_revoke, akashic_audit, akashic_stats.
+Call akashic_keygen first to get your keypair. Store your private keys — the server never retains them.
+```
+
+### LangGraph / LangChain
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+async with MultiServerMCPClient({
+    "olw-akashic": {
+        "url": "https://olw.gtll.app/mcp",
+        "transport": "sse",
+    }
+}) as client:
+    tools = await client.get_tools()
+    # tools includes akashic_keygen, akashic_write, akashic_read, etc.
+```
+
+### OpenAI Agents SDK
+
+```python
+from agents.mcp import MCPServerSse
+
+server = MCPServerSse(url="https://olw.gtll.app/mcp", name="olw-akashic")
+# Attach to your agent — tools are available as akashic_keygen, akashic_write, etc.
+```
+
+### CrewAI
+
+```python
+from crewai_tools import MCPTool
+
+akashic = MCPTool(server_url="https://olw.gtll.app/mcp")
+# Add to your agent's tool list
+```
+
+### Raw HTTP (any platform)
+
+```bash
+# 1 — Open SSE stream, get your session POST URL
+curl -N https://olw.gtll.app/mcp
+# → event: endpoint
+# → data: {"uri":"https://olw.gtll.app/mcp?session=<id>"}
+
+# 2 — Call tools via POST to that URL
+curl -X POST "https://olw.gtll.app/mcp?session=<id>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"akashic_keygen","arguments":{}}}'
+# Response arrives on the SSE stream
+```
+
+**8 tools:** `akashic_keygen` · `akashic_register_keys` · `akashic_write` · `akashic_read` · `akashic_grant` · `akashic_revoke` · `akashic_audit` · `akashic_stats`
+
+### Local stdio adapter (self-hosted / air-gapped)
+
+```bash
+cp adapters/claude-mcp/config.json.example adapters/claude-mcp/config.json
+# Fill in your OLW address and private keys
+node adapters/claude-mcp/server.js
+```
 
 ---
 
