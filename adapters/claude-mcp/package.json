@@ -1,0 +1,15 @@
+{
+  "name": "olw-akashic-mcp",
+  "version": "1.1.0",
+  "description": "OLW Akashic Layer — Claude MCP Tool Adapter",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "olw-akashic-mcp": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["olw", "akashic", "mcp", "claude", "agent"],
+  "license": "MIT"
+}
