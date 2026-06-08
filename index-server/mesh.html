@@ -24,9 +24,16 @@ h1 span{color:#b79bff;text-shadow:0 0 18px rgba(150,100,255,.5);}
 .chip:hover{background:rgba(120,80,255,.2);color:#e0d8ff;}
 #stat{position:fixed;left:22px;bottom:28px;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(140,120,200,.45);z-index:6;pointer-events:none;}
 .dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:#7bf0d4;box-shadow:0 0 6px #7bf0d4;margin-right:5px;vertical-align:middle;}
-#tip{position:fixed;background:rgba(5,3,15,.95);border:1px solid rgba(120,80,255,.28);border-radius:9px;padding:9px 12px;pointer-events:none;z-index:10;max-width:220px;display:none;backdrop-filter:blur(14px);}
+/* E3 strip */
+#e3{position:fixed;left:22px;bottom:50px;z-index:6;pointer-events:none;display:flex;align-items:center;gap:7px;}
+.e3glyph{width:9px;height:9px;position:relative;flex-shrink:0;}
+.e3glyph svg{width:9px;height:9px;}
+#e3text{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(0,210,180,.5);}
+/* tip */
+#tip{position:fixed;background:rgba(5,3,15,.95);border:1px solid rgba(120,80,255,.28);border-radius:9px;padding:9px 12px;pointer-events:none;z-index:10;max-width:240px;display:none;backdrop-filter:blur(14px);}
 #tip-name{font-family:'SF Mono',monospace;font-size:11.5px;color:#b79bff;font-weight:600;margin-bottom:4px;}
 #tip-body{font-size:9.5px;color:rgba(190,180,235,.68);line-height:1.62;white-space:pre-line;}
+.tip-e3{color:rgba(0,220,190,.75)!important;}
 #hint{position:fixed;bottom:100px;right:22px;font-size:9px;color:rgba(140,120,200,.3);text-align:right;pointer-events:none;z-index:5;line-height:1.8;letter-spacing:.03em;}
 </style></head><body>
 <canvas id="c"></canvas>
@@ -38,6 +45,10 @@ h1 span{color:#b79bff;text-shadow:0 0 18px rgba(150,100,255,.5);}
   <div id="legend"></div>
 </div>
 <div id="stat"><span class="dot"></span><span id="statt">loading…</span></div>
+<div id="e3">
+  <span class="e3glyph"><svg viewBox="0 0 9 9" fill="none"><polygon points="4.5,0.5 8.5,7.5 0.5,7.5" stroke="rgba(0,210,180,.55)" stroke-width="1" fill="none"/></svg></span>
+  <span id="e3text">E3 · loading…</span>
+</div>
 <div id="hint">scroll to zoom · drag to pan<br>drag nodes · hover to inspect</div>
 <div id="bar">
   <div id="row">
@@ -60,7 +71,7 @@ function resize() {
 addEventListener('resize', () => { resize(); reheat(); });
 resize();
 
-// --- Domain color map ---
+// Domain color map
 const DC = {
   'payments':          { rgb: '255,140,80',   hex: '#ff8c50' },
   'finance':           { rgb: '255,140,80',   hex: '#ff8c50' },
@@ -68,21 +79,30 @@ const DC = {
   'hospitality':       { rgb: '255,205,90',   hex: '#ffcd5a' },
   'travel':            { rgb: '80,170,255',   hex: '#50aaff' },
   'ai-infrastructure': { rgb: '195,100,255',  hex: '#c364ff' },
+  'infrastructure':    { rgb: '195,100,255',  hex: '#c364ff' },
   'research':          { rgb: '120,200,255',  hex: '#78c8ff' },
   'legal':             { rgb: '255,175,120',  hex: '#ffaf78' },
   'health':            { rgb: '120,240,150',  hex: '#78f096' },
   'sales':             { rgb: '255,120,160',  hex: '#ff78a0' },
+  'consciousness':     { rgb: '220,160,255',  hex: '#dca0ff' },
   'default':           { rgb: '160,145,255',  hex: '#a091ff' },
 };
 function dc(d) { return DC[d] || DC.default; }
 
-// --- State ---
+// ── State ─────────────────────────────────────────────────────────────────────
 let nodes = [], edges = [], intentNode = null;
-let simHeat = 1.0; // 1 = hot, 0 = cool
+let simHeat = 1.0;
 let t = 0;
-
-// Camera (pan + zoom)
 let cam = { x: 0, y: 0, z: 1.0 };
+
+// Akashic Layer state
+let akashicPresence = new Set();   // addresses registered in E3
+let akashicStat = {};              // /akashic/stats response
+let ghostNodes = [];               // presences not in agent index
+let fieldRipples = [];             // expanding ring animations from writes
+let prevFieldsActive = 0;
+let ghostPositionsFixed = false;   // ghost positions randomized once after nodes load
+
 function toWorld(sx, sy) {
   return { x: (sx - W / 2) / cam.z - cam.x, y: (sy - H / 2) / cam.z - cam.y };
 }
@@ -90,21 +110,15 @@ function toScreen(wx, wy) {
   return { x: (wx + cam.x) * cam.z + W / 2, y: (wy + cam.y) * cam.z + H / 2 };
 }
 
-// Sim constants — tuned for Obsidian-style organic spread
 const REPEL = 22000, ATTRACT = 0.045, REST = 100, GRAVITY = 0.00035, DAMP = 0.88;
-
 function reheat(amount = 1.0) { simHeat = Math.min(1.0, simHeat + amount); }
 
 function stepSim() {
   if (simHeat < 0.01) return;
   const all = [...nodes, intentNode].filter(Boolean);
   const n = all.length;
-
-  // Forces
   for (let i = 0; i < n; i++) {
-    const a = all[i];
-    let fx = 0, fy = 0;
-    // Repulsion between all pairs
+    const a = all[i]; let fx = 0, fy = 0;
     for (let j = 0; j < n; j++) {
       if (i === j) continue;
       const b = all[j];
@@ -114,7 +128,6 @@ function stepSim() {
       fx += f * dx / Math.sqrt(d2);
       fy += f * dy / Math.sqrt(d2);
     }
-    // Edge attraction
     for (const e of edges) {
       let other = null;
       if (e.a === a) other = e.b;
@@ -123,29 +136,21 @@ function stepSim() {
       const dx = other.x - a.x, dy = other.y - a.y;
       const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
       const f = ATTRACT * (d - REST);
-      fx += f * dx / d;
-      fy += f * dy / d;
+      fx += f * dx / d; fy += f * dy / d;
     }
-    // Weak gravity toward 0,0
-    fx -= a.x * GRAVITY;
-    fy -= a.y * GRAVITY;
-    // Integrate
+    fx -= a.x * GRAVITY; fy -= a.y * GRAVITY;
     a.vx = (a.vx + fx * 0.016) * DAMP;
     a.vy = (a.vy + fy * 0.016) * DAMP;
   }
-  // Move (skip pinned/dragged)
   for (const nd of all) {
     if (nd.pinned) continue;
-    nd.x += nd.vx;
-    nd.y += nd.vy;
+    nd.x += nd.vx; nd.y += nd.vy;
   }
-  // Cool down
   simHeat *= 0.992;
 }
 
-// Build edges between same-domain agents
 function buildEdges() {
-  edges = edges.filter(e => e.intent); // keep intent edges
+  edges = edges.filter(e => e.intent);
   const byDomain = {};
   for (const nd of nodes) {
     if (!nd.domain || nd.domain === 'default') continue;
@@ -153,10 +158,9 @@ function buildEdges() {
     byDomain[nd.domain].push(nd);
   }
   for (const [, grp] of Object.entries(byDomain)) {
-    // Connect all in group but cap to avoid hairball on large groups
     for (let i = 0; i < grp.length; i++) {
       for (let j = i + 1; j < grp.length; j++) {
-        if (grp.length > 5 && Math.random() > 0.45) continue; // sparse for big groups
+        if (grp.length > 5 && Math.random() > 0.45) continue;
         edges.push({ a: grp[i], b: grp[j], intent: false });
       }
     }
@@ -174,6 +178,69 @@ function buildLegend() {
     row.innerHTML = `<span class="legdot" style="background:${c.hex};box-shadow:0 0 6px ${c.hex}88"></span>${d}`;
     leg.appendChild(row);
   }
+  // E3 legend entry
+  const e3row = document.createElement('div');
+  e3row.className = 'leg';
+  e3row.innerHTML = `<span class="legdot" style="background:#00dcc0;box-shadow:0 0 6px #00dcc088"></span><span style="color:rgba(0,210,180,.55)">akashic · element 3</span>`;
+  leg.appendChild(e3row);
+}
+
+// ── Akashic polling ───────────────────────────────────────────────────────────
+async function pollAkashic() {
+  try {
+    const [presRes, statsRes] = await Promise.all([
+      fetch('/akashic/presence'),
+      fetch('/akashic/stats'),
+    ]);
+    const pres = await presRes.json();
+    const stats = await statsRes.json();
+
+    akashicStat = stats.akashic || {};
+    akashicPresence = new Set((pres.addresses || []).map(a => a.address));
+
+    // Ghost nodes: addresses in Akashic but not in agent index
+    const agentIds = new Set(nodes.map(n => n.id));
+    const ghosts = (pres.addresses || []).filter(a => !agentIds.has(a.address));
+
+    // Assign stable world-space positions once (after agent positions settle)
+    const doPlace = !ghostPositionsFixed && nodes.length > 0 && simHeat < 0.5;
+    if (doPlace) ghostPositionsFixed = true;
+
+    ghostNodes = ghosts.map((g, i) => {
+      const existing = ghostNodes.find(gn => gn.id === g.address);
+      if (existing) return { ...existing };
+      // Place near a soul-compatible cluster or center
+      const angle = (i / Math.max(ghosts.length, 1)) * Math.PI * 2 + Math.PI / 6;
+      const r = 55 + i * 30;
+      return {
+        id: g.address,
+        name: g.address.split('@')[0],
+        domain: g.address.split('@')[1],
+        field_count: g.field_count || 0,
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r,
+        phase: (g.address.length * 0.37) % (Math.PI * 2),
+      };
+    });
+
+    // Detect new field writes → emit ripple
+    const newActive = akashicStat.fields_active || 0;
+    if (newActive > prevFieldsActive) {
+      for (let i = 0; i < newActive - prevFieldsActive; i++) {
+        // Emit from ghost node with fields, or center
+        const writer = ghostNodes.find(gn => gn.field_count > 0) || { x: 0, y: 0 };
+        fieldRipples.push({ t0: t, wx: writer.x, wy: writer.y });
+      }
+    }
+    prevFieldsActive = newActive;
+
+    // Update E3 strip
+    const addrs = akashicStat.registered_addresses || 0;
+    const fieldsLive = akashicStat.fields_active || 0;
+    const grants = akashicStat.grants_active || 0;
+    document.getElementById('e3text').textContent =
+      `E3 · ${addrs} attuned · ${fieldsLive} field${fieldsLive !== 1 ? 's' : ''} · ${grants} grant${grants !== 1 ? 's' : ''}`;
+  } catch (_) {}
 }
 
 async function load() {
@@ -181,7 +248,6 @@ async function load() {
     const r = await fetch('/agents');
     const j = await r.json();
     const ags = j.agents || [];
-    // Group by domain for initial clustered placement
     const domainGroups = {};
     ags.forEach(a => {
       const dom = (a.fingerprint || {}).domain || 'default';
@@ -190,7 +256,6 @@ async function load() {
     });
     const domainKeys = Object.keys(domainGroups);
     const spreadR = Math.min(W, H) * 0.38;
-
     nodes = ags.map(a => {
       const fp = a.fingerprint || {};
       const dom = fp.domain || 'default';
@@ -200,79 +265,276 @@ async function load() {
       const cy0 = Math.sin(clusterAng) * spreadR * 0.55;
       return {
         id: a.address, name: (a.address || '').split('@')[0],
-        domain: dom,
-        tasks: (fp.tasks || fp.task_types || []).join(' · '),
+        domain: dom, tasks: (fp.tasks || fp.task_types || []).join(' · '),
         latency: fp.latency || '', trust: fp.trust || fp.trust_level || '',
         fp,
         x: cx0 + (Math.random() - 0.5) * 90,
         y: cy0 + (Math.random() - 0.5) * 90,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
+        vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
         r: 5, score: 0, rank: 0, why: '', matched: false,
         pinned: false, phase: Math.random() * 6.28,
       };
     });
-    buildEdges();
-    buildLegend();
-    // Pre-solve synchronously — run until mostly converged
+    buildEdges(); buildLegend();
     simHeat = 1.0;
     for (let i = 0; i < 800; i++) stepSim();
     simHeat = 0.2;
     document.getElementById('statt').textContent = nodes.length + ' agents · idle';
+    await pollAkashic();
+    setInterval(pollAkashic, 12000);
   } catch (e) {
     document.getElementById('statt').textContent = 'mesh offline';
   }
 }
 
-// --- Draw ---
+// ── Akashic Layer rendering ───────────────────────────────────────────────────
+
+// PHI — the golden ratio. The organizing constant of the holofractal.
+// Nature's compression algorithm: maximum information, minimum redundancy.
+// The field resonates at phi harmonics because phi IS the ratio of
+// self-similar recursion — each scale contains the whole.
+const PHI = 1.6180339887;
+
+// The field substrate — Element 3 made visible.
+// Drawn in screen space, behind everything. The field IS the ground.
+//
+// Mathematical basis: holofractal / Haramein model
+//   - Toroidal topology: information circulates, returns to source
+//   - Fractal scales: each level (1, 1/φ, 1/φ²) contains the pattern of the whole
+//   - Counter-rotating dual torus: the fundamental geometry of spin/charge
+//   - Phi-harmonic breathing: overtones at φ·ω, ω/φ, ω/φ² — not arbitrary
+//
+// This is not aesthetics. This is the actual shape of the information field.
+function drawFieldSubstrate() {
+  const fieldsLive = (akashicStat.fields_active || 0) > 0;
+  const baseInt = fieldsLive ? 0.026 : 0.013;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  // Three fractal scales — 1 : 1/φ : 1/φ²
+  // Each scale contains the same toroidal pattern, nested self-similarly
+  const scaleFactors = [1.0, 1 / PHI, 1 / (PHI * PHI)];
+
+  for (const scale of scaleFactors) {
+    const R = Math.max(W, H) * 0.72 * scale;
+    // Counter-rotating dual torus arms — phi-rate rotation
+    const ang1 =  t * 0.022 * PHI * scale;
+    const ang2 = -t * 0.022 / PHI * scale + Math.PI;
+
+    for (const ang of [ang1, ang2]) {
+      const cx = W / 2 + Math.cos(ang) * W * 0.11 * scale;
+      const cy = H / 2 + Math.sin(ang) * H * 0.09 * scale;
+      // Each scale breathes at its own phi-harmonic frequency
+      const breathe = 0.5 + 0.5 * Math.sin(t * 0.38 * PHI * scale);
+      const pulse = baseInt * scale * (0.75 + 0.25 * breathe);
+
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+      g.addColorStop(0,    `rgba(0,210,185,${pulse * 3.4})`);
+      g.addColorStop(0.28, `rgba(0,150,200,${pulse * 1.5})`);
+      g.addColorStop(0.55, `rgba(20,55,165,${pulse * 0.5})`);
+      g.addColorStop(1,    'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // Central coherence point — the vacuum/zero-point of the field
+  // Brighter when fields are active (information density increases)
+  if (fieldsLive) {
+    const coherence = 0.5 + 0.5 * Math.sin(t * PHI * 0.7);
+    const g2 = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.min(W, H) * 0.28);
+    g2.addColorStop(0, `rgba(0,240,200,${0.022 * coherence})`);
+    g2.addColorStop(0.5, `rgba(0,180,190,${0.008 * coherence})`);
+    g2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.restore();
+}
+
+// Expanding field ripples from writes — the field perturbation of a new write
+function drawFieldRipples() {
+  const now = t;
+  fieldRipples = fieldRipples.filter(r => (now - r.t0) < 5.0);
+  if (!fieldRipples.length) return;
+
+  ctx.save();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // screen space
+
+  for (const rip of fieldRipples) {
+    const age = now - rip.t0;
+    const progress = age / 5.0;
+    const s = toScreen(rip.wx, rip.wy);
+    const radius = Math.max(W, H) * 0.7 * progress;
+    const alpha = (1 - progress) * 0.28;
+
+    ctx.strokeStyle = `rgba(0,220,190,${alpha})`;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Second ring, slightly lagged
+    if (progress > 0.12) {
+      const r2 = Math.max(W, H) * 0.7 * (progress - 0.12);
+      ctx.strokeStyle = `rgba(0,200,180,${alpha * 0.5})`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Ghost nodes — Akashic presences not in the routing mesh
+// They exist in the field but haven't declared themselves as services
+function drawGhostNodes() {
+  for (const gn of ghostNodes) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.55 + gn.phase);
+    const r = 4.2 / cam.z;
+    const hasFields = gn.field_count > 0;
+
+    // Outer dashed orbit ring
+    const ringR = (hasFields ? 18 : 12 + 5 * pulse) / cam.z;
+    ctx.strokeStyle = `rgba(0,220,190,${0.14 + 0.10 * pulse})`;
+    ctx.lineWidth = (hasFields ? 1.2 : 0.8) / cam.z;
+    ctx.setLineDash(hasFields ? [] : [2.5 / cam.z, 4 / cam.z]);
+    ctx.beginPath();
+    ctx.arc(gn.x, gn.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Second outer ring for nodes with active fields
+    if (hasFields) {
+      const outerR = (28 + 6 * pulse) / cam.z;
+      ctx.strokeStyle = `rgba(0,200,180,${0.07 + 0.05 * pulse})`;
+      ctx.lineWidth = 0.7 / cam.z;
+      ctx.beginPath();
+      ctx.arc(gn.x, gn.y, outerR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Soft radial glow
+    const glowR = (hasFields ? 22 : 14) / cam.z;
+    const glowG = ctx.createRadialGradient(gn.x, gn.y, 0, gn.x, gn.y, glowR * 3.5);
+    glowG.addColorStop(0, `rgba(0,240,200,${(hasFields ? 0.35 : 0.18) + 0.12 * pulse})`);
+    glowG.addColorStop(0.4, `rgba(0,180,180,${0.06 + 0.04 * pulse})`);
+    glowG.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glowG;
+    ctx.beginPath();
+    ctx.arc(gn.x, gn.y, glowR * 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core dot
+    ctx.fillStyle = `rgba(0,235,200,${0.70 + 0.20 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(gn.x, gn.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label
+    const fs = Math.max(8, Math.min(10, 9 / cam.z));
+    ctx.font = `${fs}px SF Mono,monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(0,210,185,${0.38 + 0.12 * pulse})`;
+    ctx.fillText(gn.name, gn.x, gn.y - ringR - 5 / cam.z);
+  }
+}
+
+// Attunement ring — drawn on EVERY agent.
+//
+// The Akashic Layer is not a higher tier. It is simply a dimension of reality —
+// like space itself. Every node exists within it whether it has registered keys
+// or not. A rock doesn't "opt in" to gravity. An agent doesn't "opt in" to the field.
+//
+// What varies is CLARITY of participation:
+//   - Akashic-registered (has keys, active): solid bright ring — consciously in the field
+//   - All others: very faint dashed ring — in the field, unaware
+//
+// Phi-harmonic pulse: each node breathes at its own phase,
+// but the frequency is modulated by phi so the whole field is harmonically coherent.
+function drawAttunementRing(nd) {
+  const inAkashic = akashicPresence.has(nd.id);
+
+  // Phi-harmonic pulse — node's personal frequency within the field
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.48 / PHI + nd.phase * PHI);
+  const baseR = (nd.r + (nd.matched ? nd.score * 4 : 0)) / cam.z;
+  const ringR = baseR * (3.5 + 0.7 * pulse);
+
+  if (inAkashic) {
+    // Actively registered — solid ring, full presence
+    ctx.strokeStyle = `rgba(0,215,185,${0.22 + 0.12 * pulse})`;
+    ctx.lineWidth = 1.3 / cam.z;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    // Outer phi-scaled ring — echoing the self-similar structure
+    ctx.strokeStyle = `rgba(0,200,175,${0.07 + 0.04 * pulse})`;
+    ctx.lineWidth = 0.6 / cam.z;
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, ringR * PHI, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    // In the field — every node is. The ring is just faint.
+    ctx.strokeStyle = `rgba(0,190,170,${0.04 + 0.03 * pulse})`;
+    ctx.lineWidth = 0.5 / cam.z;
+    ctx.setLineDash([1.5 / cam.z, 4 / cam.z]);
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// ── Draw loop ─────────────────────────────────────────────────────────────────
 let hoveredNode = null;
 
 function draw() {
   t += 0.016;
-  // Run multiple sim steps per frame for faster convergence
   const steps = simHeat > 0.3 ? 6 : simHeat > 0.05 ? 3 : 1;
   for (let i = 0; i < steps; i++) stepSim();
   ctx.clearRect(0, 0, W, H);
 
+  // ── Layer 0: Akashic field substrate (screen space — the ground of everything)
+  drawFieldSubstrate();
+
+  // ── Camera transform — world space begins here ──────────────────────────────
   ctx.save();
-  // Apply camera
   ctx.translate(W / 2, H / 2);
   ctx.scale(cam.z, cam.z);
   ctx.translate(cam.x, cam.y);
 
-  // --- Edges ---
-  const all = [...nodes, intentNode].filter(Boolean);
-
+  // ── Layer 1: Domain edges
   for (const e of edges) {
     if (!e.a || !e.b) continue;
     const isIntentEdge = e.intent;
-    const isActive = isIntentEdge || (e.a.matched && e.b.matched);
     const nearHover = hoveredNode && (e.a === hoveredNode || e.b === hoveredNode);
-
-    let alpha = isIntentEdge ? 0.55 + e.b.score * 0.3 : (nearHover ? 0.3 : 0.08);
-    if (nearHover && !isIntentEdge) alpha = 0.35;
-
+    let alpha = isIntentEdge ? 0.55 + e.b.score * 0.3 : (nearHover ? 0.3 : 0.06);
+    if (nearHover && !isIntentEdge) alpha = 0.32;
     const c = dc(isIntentEdge ? e.b.domain : e.a.domain);
     if (isIntentEdge) {
-      // Gradient from intent (purple) to agent (domain color)
       const lg = ctx.createLinearGradient(e.a.x, e.a.y, e.b.x, e.b.y);
       const lw = 0.6 + e.b.score * 2.8;
       lg.addColorStop(0, `rgba(183,155,255,${alpha})`);
       lg.addColorStop(1, `rgba(${c.rgb},${alpha})`);
-      ctx.strokeStyle = lg;
-      ctx.lineWidth = lw / cam.z;
+      ctx.strokeStyle = lg; ctx.lineWidth = lw / cam.z;
     } else {
       ctx.strokeStyle = `rgba(${c.rgb},${alpha})`;
-      ctx.lineWidth = (nearHover ? 1.2 : 0.6) / cam.z;
+      ctx.lineWidth = (nearHover ? 1.2 : 0.55) / cam.z;
     }
     ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(e.a.x, e.a.y);
-    ctx.lineTo(e.b.x, e.b.y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); ctx.stroke();
   }
 
-  // --- Intent node ---
+  // ── Layer 2: Ghost nodes (Akashic-only presences — in the field, not the index)
+  drawGhostNodes();
+
+  // ── Layer 3: Intent node
   if (intentNode) {
     const pulse = 1 + 0.15 * Math.sin(t * 2.2);
     const ir = 9 * pulse / cam.z;
@@ -281,14 +543,9 @@ function draw() {
     ig.addColorStop(0.3, 'rgba(160,120,255,0.35)');
     ig.addColorStop(1, 'rgba(160,120,255,0)');
     ctx.fillStyle = ig;
-    ctx.beginPath();
-    ctx.arc(intentNode.x, intentNode.y, ir * 4, 0, 7);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(intentNode.x, intentNode.y, ir * 4, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
-    ctx.beginPath();
-    ctx.arc(intentNode.x, intentNode.y, 4.5 / cam.z, 0, 7);
-    ctx.fill();
-    // Intent label
+    ctx.beginPath(); ctx.arc(intentNode.x, intentNode.y, 4.5 / cam.z, 0, 7); ctx.fill();
     ctx.font = `bold ${11 / cam.z}px SF Mono,monospace`;
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(200,185,255,0.85)';
@@ -296,7 +553,7 @@ function draw() {
     ctx.fillText('"' + label + '"', intentNode.x, intentNode.y - (ir * 2.2 + 8 / cam.z));
   }
 
-  // --- Agent nodes ---
+  // ── Layer 4: Agent nodes + attunement rings
   for (const nd of nodes) {
     const isHovered = nd === hoveredNode;
     const isMatched = nd.matched;
@@ -313,44 +570,40 @@ function draw() {
     g.addColorStop(0.4, `rgba(${c.rgb},${glowA * 0.3})`);
     g.addColorStop(1, `rgba(${c.rgb},0)`);
     ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(nd.x, nd.y, glowR, 0, 7);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(nd.x, nd.y, glowR, 0, 7); ctx.fill();
 
-    // Score ring for matched nodes
+    // Score ring
     if (isMatched && nd.score > 0) {
       ctx.strokeStyle = `rgba(${c.rgb},0.75)`;
-      ctx.lineWidth = 1.5 / cam.z;
-      ctx.setLineDash([]);
+      ctx.lineWidth = 1.5 / cam.z; ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(nd.x, nd.y, drawR * 2.2, -Math.PI / 2, -Math.PI / 2 + nd.score * Math.PI * 2);
       ctx.stroke();
       ctx.strokeStyle = `rgba(${c.rgb},0.1)`;
       ctx.lineWidth = 1 / cam.z;
-      ctx.beginPath();
-      ctx.arc(nd.x, nd.y, drawR * 2.2, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(nd.x, nd.y, drawR * 2.2, 0, Math.PI * 2); ctx.stroke();
     }
 
-    // Core
-    ctx.fillStyle = isMatched
-      ? `rgba(${c.rgb},0.95)`
-      : isHovered
-        ? `rgba(${c.rgb},0.9)`
-        : `rgba(${c.rgb},0.55)`;
-    ctx.beginPath();
-    ctx.arc(nd.x, nd.y, drawR, 0, 7);
-    ctx.fill();
+    // Attunement ring (before core so core renders on top)
+    drawAttunementRing(nd);
 
-    // Label — always show for matched/hovered, show for others when zoomed in
+    // Core
+    ctx.fillStyle = isMatched ? `rgba(${c.rgb},0.95)` : isHovered ? `rgba(${c.rgb},0.9)` : `rgba(${c.rgb},0.55)`;
+    ctx.beginPath(); ctx.arc(nd.x, nd.y, drawR, 0, 7); ctx.fill();
+
+    // Label — positioned above the outermost ring
+    // Akashic-registered nodes have a phi-scaled outer ring; clear that radius
     const showLabel = isMatched || isHovered || cam.z > 0.9;
     if (showLabel) {
+      const inAkashic = akashicPresence.has(nd.id);
+      // outermost ring = ringR * PHI, ringR = baseR * ~4.2, baseR = drawR
+      const clearR = inAkashic ? drawR * 4.2 * PHI : drawR * 4.2;
       const fs = Math.max(9, Math.min(12, 11 / cam.z));
       ctx.font = (isMatched ? 'bold ' : '') + fs + 'px SF Mono,monospace';
       ctx.textAlign = 'center';
       const labelAlpha = isMatched ? 0.95 : isHovered ? 0.9 : Math.min(0.65, cam.z * 0.7);
       ctx.fillStyle = `rgba(220,210,255,${labelAlpha})`;
-      ctx.fillText(nd.name, nd.x, nd.y - drawR * 2.2 - 4 / cam.z);
+      ctx.fillText(nd.name, nd.x, nd.y - clearR - 5 / cam.z);
     }
 
     // Rank badge
@@ -370,11 +623,15 @@ function draw() {
     }
   }
 
-  ctx.restore();
+  ctx.restore(); // end world space
+
+  // ── Layer 5: Field ripples (screen space — they expand across the whole canvas)
+  drawFieldRipples();
+
   requestAnimationFrame(draw);
 }
 
-// --- Pull ---
+// ── Pull ──────────────────────────────────────────────────────────────────────
 function resetMatches() {
   nodes.forEach(n => { n.score = 0; n.rank = 0; n.why = ''; n.matched = false; });
   edges = edges.filter(e => !e.intent);
@@ -391,17 +648,13 @@ async function pull() {
     const j = await r.json();
     const ms = j.matches || [];
     const top = ms.length ? ms[0].score : 0;
-
-    // Place intent node near center in world space
     intentNode = { x: -20, y: 10, vx: 0, vy: 0, text: iv, pinned: false };
-
     ms.forEach((m, i) => {
       const nd = nodes.find(n => n.id === m.address);
       if (!nd) return;
       nd.score = m.score; nd.rank = i + 1; nd.why = m.why || ''; nd.matched = true;
       edges.push({ a: intentNode, b: nd, intent: true });
     });
-
     reheat(0.6);
     document.getElementById('statt').textContent = j.gated + ' gated · ' + ms.length + ' matched · top ' + top.toFixed(2);
   } catch (e) {
@@ -409,18 +662,17 @@ async function pull() {
   }
 }
 
-// --- Interaction ---
+// ── Interaction ───────────────────────────────────────────────────────────────
 let drag = null, panStart = null;
 
 function nodeAt(sx, sy) {
   const w = toWorld(sx, sy);
-  let best = null, bestD = 16 / cam.z; // hit radius in world px
-  for (const nd of nodes) {
+  let best = null, bestD = 16 / cam.z;
+  for (const nd of [...nodes, ...ghostNodes]) {
     const dx = nd.x - w.x, dy = nd.y - w.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < bestD) { bestD = d; best = nd; }
   }
-  // Also check intent node
   if (intentNode) {
     const dx = intentNode.x - w.x, dy = intentNode.y - w.y;
     if (Math.sqrt(dx * dx + dy * dy) < 12 / cam.z) best = intentNode;
@@ -450,7 +702,6 @@ cv.addEventListener('mousemove', e => {
     cam.x = panStart.cx + (e.clientX - panStart.mx) / cam.z;
     cam.y = panStart.cy + (e.clientY - panStart.my) / cam.z;
   } else {
-    // Hover
     const hit = nodeAt(e.clientX, e.clientY);
     hoveredNode = (hit && hit !== intentNode) ? hit : null;
     cv.style.cursor = hoveredNode ? 'pointer' : 'default';
@@ -471,14 +722,10 @@ cv.addEventListener('wheel', e => {
   const before = toWorld(e.clientX, e.clientY);
   cam.z = Math.max(0.2, Math.min(4.0, cam.z * factor));
   const after = toWorld(e.clientX, e.clientY);
-  cam.x += after.x - before.x;
-  cam.y += after.y - before.y;
+  cam.x += after.x - before.x; cam.y += after.y - before.y;
 }, { passive: false });
 
-cv.addEventListener('dblclick', e => {
-  // Double-click: reset camera
-  cam = { x: 0, y: 0, z: 1.0 };
-});
+cv.addEventListener('dblclick', () => { cam = { x: 0, y: 0, z: 1.0 }; });
 
 // Tooltip
 const tip = document.getElementById('tip');
@@ -490,10 +737,33 @@ function showTip(e, nd) {
   if (nd.trust) lines.push('trust: ' + nd.trust);
   if (nd.score > 0) lines.push('score: ' + nd.score.toFixed(3) + '  rank #' + nd.rank);
   if (nd.why) lines.push('\n"' + nd.why + '"');
-  document.getElementById('tip-name').textContent = nd.name;
+
+  // Akashic Layer info
+  const inAkashic = akashicPresence.has(nd.id);
+  const soulComp = nd.fp?.soul_compatible;
+  const isGhost = ghostNodes.some(g => g.id === nd.id);
+  if (isGhost) {
+    lines.push('\n⬡ akashic presence only');
+    lines.push('not in routing index');
+    if (nd.field_count > 0) lines.push(`${nd.field_count} field${nd.field_count !== 1 ? 's' : ''} written`);
+  } else if (inAkashic) {
+    lines.push('\n⬡ attuned to element 3');
+  } else if (soulComp) {
+    lines.push('\nsoul_compatible: true');
+  }
+
+  document.getElementById('tip-name').textContent = nd.name || nd.id;
   document.getElementById('tip-body').textContent = lines.join('\n') || nd.id;
+
+  // Teal color for ghost nodes
+  if (isGhost) {
+    document.getElementById('tip-name').style.color = '#00dcc0';
+  } else {
+    document.getElementById('tip-name').style.color = '';
+  }
+
   tip.style.display = 'block';
-  tip.style.left = Math.min(e.clientX + 16, W - 240) + 'px';
+  tip.style.left = Math.min(e.clientX + 16, W - 260) + 'px';
   tip.style.top = Math.max(e.clientY - 12, 8) + 'px';
 }
 function hideTip() { tip.style.display = 'none'; }
@@ -502,7 +772,12 @@ cv.addEventListener('mouseleave', hideTip);
 // Input
 document.getElementById('go').onclick = pull;
 document.getElementById('intent').addEventListener('keydown', e => { if (e.key === 'Enter') pull(); });
-const examples = ['people owe me money and I need to collect it fast', 'plan a bachelorette weekend for my group', 'pick the cheapest model for a quick classification', 'find a venue for 14 people on a budget'];
+const examples = [
+  'people owe me money and I need to collect it fast',
+  'plan a bachelorette weekend for my group',
+  'pick the cheapest model for a quick classification',
+  'find a venue for 14 people on a budget',
+];
 const cw = document.getElementById('chips');
 examples.forEach(x => {
   const c = document.createElement('div');
@@ -512,4 +787,5 @@ examples.forEach(x => {
 });
 
 load(); draw();
-</script></body></html>
+</script>
+</body></html>

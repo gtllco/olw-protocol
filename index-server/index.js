@@ -3615,6 +3615,24 @@ Sitemap: ${DOMAIN}/llms.txt
     return;
   }
 
+  // GET /akashic/presence — public list of registered Akashic addresses (no key material)
+  // Returns who is attuned to Element 3 — identity only, no field content, no keys
+  if (req.method === 'GET' && url.pathname === '/akashic/presence') {
+    try {
+      const { addresses } = akashicAdminData();
+      const list = addresses.map(a => ({
+        address: a.address,
+        registered_at: a.registered_at,
+        field_count: a.field_count,
+      }));
+      res.writeHead(200);
+      res.end(JSON.stringify({ ok: true, count: list.length, addresses: list }));
+    } catch (e) {
+      res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // POST /akashic/seal — convenience: encrypt plaintext to a recipient's public key (server-side)
   // Body: { plaintext, recipient_address }
   // Returns ciphertext the caller can pass to /akashic/write
