@@ -7,6 +7,11 @@ dist/
 .DS_Store
 index-server/api-keys.json
 index-server/rate-limits.json
+index-server/akashic-fields.json
+index-server/akashic-grants.json
+index-server/akashic-pubkeys.json
+index-server/akashic-audit.jsonl
+olw-protocol/adapters/claude-mcp/config.json
 .agents/
 skills-lock.json
 .planning/
