@@ -1,8 +1,9 @@
 """OLW — Open Language Wire. The routing protocol for AI agents."""
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 import httpx
+import json
 from typing import Optional, List
 
 LOCAL_INDEX = "http://localhost:3778"
@@ -143,5 +144,156 @@ def fingerprint(domain: str, task_types: list, input_formats: list, output_forma
             "trust_level": trust_level, "soul_compatible": soul_compatible}
 
 
-__all__ = ["Agent", "resolve", "query", "fingerprint",
-           "OLW_DOMAIN_MAP", "PUBLIC_INDEX", "__version__"]
+
+# ── Akashic Layer (Element 3) ─────────────────────────────────────────────────
+
+def akashic_keygen(index_url: str = PUBLIC_INDEX) -> dict:
+    """Generate a fresh X25519 + Ed25519 keypair. Store private keys securely."""
+    r = httpx.post(f"{index_url}/akashic/keygen", timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def akashic_register_keys(address: str, x25519_pub: str, ed25519_pub: str,
+                           index_url: str = PUBLIC_INDEX) -> dict:
+    """Register public keys for an OLW address. Required before writing fields or creating grants."""
+    r = httpx.post(f"{index_url}/akashic/keys", timeout=10, json={
+        "address": address, "x25519_pub": x25519_pub, "ed25519_pub": ed25519_pub,
+    })
+    r.raise_for_status()
+    return r.json()
+
+
+def akashic_write(writer: str, ed25519_priv: str, namespace: str, field_path: str,
+                  value: str, recipient: str = None, propagation: str = "local",
+                  ttl: int = None, index_url: str = PUBLIC_INDEX) -> dict:
+    """Encrypt value as a sealed box and write it as an Akashic field."""
+    recipient = recipient or namespace
+    # Fetch recipient public key
+    keys_r = httpx.get(f"{index_url}/akashic/keys", params={"address": recipient}, timeout=10)
+    keys_r.raise_for_status()
+    keys_data = keys_r.json()
+    if not keys_data.get("ok"):
+        raise ValueError(f"no public keys registered for {recipient}")
+    # Seal the value server-side (convenience endpoint)
+    seal_r = httpx.post(f"{index_url}/akashic/seal", timeout=10, json={
+        "plaintext": value, "recipient_address": recipient,
+    })
+    seal_r.raise_for_status()
+    seal_data = seal_r.json()
+    ciphertext = seal_data["ciphertext"]
+    # Determine version
+    version = 1
+    try:
+        read_r = httpx.post(f"{index_url}/akashic/read", timeout=10, json={
+            "requester": writer, "namespace": namespace, "field_paths": [field_path],
+        })
+        fields = read_r.json().get("fields", [])
+        if fields:
+            version = fields[0]["version"] + 1
+    except Exception:
+        pass
+    # Sign write payload
+    payload = f"{namespace}|{field_path}|{ciphertext}|{version}".encode()
+    sig = _ed25519_sign(payload, ed25519_priv)
+    body = {"writer": writer, "namespace": namespace, "field_path": field_path,
+            "ciphertext": ciphertext, "signature": sig, "propagation": propagation}
+    if ttl is not None:
+        body["ttl"] = ttl
+    r = httpx.post(f"{index_url}/akashic/write", timeout=10, json=body)
+    r.raise_for_status()
+    return r.json()
+
+
+def akashic_read(requester: str, namespace: str = None, field_paths: List[str] = None,
+                 x25519_priv: str = None, index_url: str = PUBLIC_INDEX) -> List[dict]:
+    """Read Akashic fields. Pass x25519_priv to auto-decrypt via server-side /open."""
+    body = {"requester": requester}
+    if namespace:
+        body["namespace"] = namespace
+    if field_paths:
+        body["field_paths"] = field_paths
+    r = httpx.post(f"{index_url}/akashic/read", timeout=10, json=body)
+    r.raise_for_status()
+    data = r.json()
+    fields = data.get("fields", [])
+    if x25519_priv and fields:
+        for f in fields:
+            try:
+                open_r = httpx.post(f"{index_url}/akashic/open", timeout=10, json={
+                    "ciphertext": f["ciphertext"], "x25519_priv": x25519_priv,
+                })
+                open_data = open_r.json()
+                if open_data.get("ok"):
+                    f["plaintext"] = open_data["plaintext"]
+                    del f["ciphertext"]
+            except Exception:
+                pass
+    return fields
+
+
+def akashic_grant(grantor: str, ed25519_priv: str, grantee: str, fields: List[str],
+                  permissions: List[str], expires_at: str,
+                  index_url: str = PUBLIC_INDEX) -> dict:
+    """Create a signed consent grant allowing another agent access to your fields."""
+    grant_body = {"grantor": grantor, "grantee": grantee, "fields": fields,
+                  "permissions": permissions, "expires_at": expires_at}
+    canonical = json.dumps({k: grant_body[k] for k in
+                            ["grantor", "grantee", "fields", "permissions", "expires_at"]
+                            if k in grant_body}).encode()
+    signature = _ed25519_sign(canonical, ed25519_priv)
+    r = httpx.post(f"{index_url}/akashic/grant", timeout=10,
+                   json={"grant": grant_body, "signature": signature})
+    r.raise_for_status()
+    return r.json()
+
+
+def akashic_revoke(grant_id: str, revoker_address: str, ed25519_priv: str,
+                   index_url: str = PUBLIC_INDEX) -> dict:
+    """Instantly revoke a consent grant."""
+    revocation_signature = _ed25519_sign(grant_id.encode(), ed25519_priv)
+    r = httpx.request("DELETE", f"{index_url}/akashic/grant", timeout=10, json={
+        "grant_id": grant_id, "revoker_address": revoker_address,
+        "revocation_signature": revocation_signature,
+    })
+    r.raise_for_status()
+    return r.json()
+
+
+def akashic_audit(address: str, limit: int = 50, index_url: str = PUBLIC_INDEX) -> List[dict]:
+    """Read the append-only audit log for an OLW address."""
+    r = httpx.get(f"{index_url}/akashic/audit",
+                  params={"address": address, "limit": limit}, timeout=10)
+    r.raise_for_status()
+    return r.json().get("log", [])
+
+
+def akashic_stats(index_url: str = PUBLIC_INDEX) -> dict:
+    """Get public Akashic Layer statistics."""
+    r = httpx.get(f"{index_url}/akashic/stats", timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def _ed25519_sign(data: bytes, priv_key_b64: str) -> str:
+    """Sign bytes with an Ed25519 private key (PKCS8 DER base64url). Returns base64url sig."""
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+        import base64
+        der = base64.urlsafe_b64decode(priv_key_b64 + "==")
+        key = Ed25519PrivateKey.from_private_bytes(der[-32:])
+        sig = key.sign(data)
+        return base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+    except ImportError:
+        raise RuntimeError(
+            "Ed25519 signing requires 'cryptography': pip install cryptography"
+        )
+
+
+__all__ = [
+    "Agent", "resolve", "query", "fingerprint",
+    "akashic_keygen", "akashic_register_keys", "akashic_write", "akashic_read",
+    "akashic_grant", "akashic_revoke", "akashic_audit", "akashic_stats",
+    "OLW_DOMAIN_MAP", "PUBLIC_INDEX", "__version__",
+]

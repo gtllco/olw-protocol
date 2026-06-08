@@ -611,6 +611,7 @@ const LANDING_HTML = `<!DOCTYPE html>
       <a href="/" class="nav-wordmark">OLW<span class="dot">.</span></a>
       <div class="nav-links">
         <a href="/mesh" class="nav-link">Mesh</a>
+        <a href="#akashic" class="nav-link">Akashic</a>
         <a href="https://github.com/gtllco/olw-protocol" class="nav-link" target="_blank" rel="noopener">GitHub</a>
         <a href="/post" class="nav-link">Whitepaper</a>
         <a href="/pricing" class="nav-link">Pricing</a>
@@ -943,6 +944,65 @@ response = olw.send(
   </div>
 </section>
 
+<section style="padding:100px 0;border-bottom:1px solid var(--border);background:var(--surface2)" id="akashic">
+  <div class="container">
+    <div class="section-label">Element 3 &mdash; Akashic Layer</div>
+    <div class="section-title" style="margin-bottom:16px">Agents can now share state.<br><em style="color:var(--green)">Without breaking their sandbox.</em></div>
+    <p style="color:var(--muted);font-size:1rem;line-height:1.8;max-width:620px;margin-bottom:60px;">
+      Sandboxed agents can&rsquo;t write to each other&rsquo;s memory. OLW&rsquo;s Akashic Layer fixes this:
+      sealed encrypted fields that any authorized agent can write and any granted agent can read
+      &mdash; over standard HTTP, no outbound calls required, consent-gated, with a full audit log
+      and right to erasure.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:60px">
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:28px">
+        <div style="font-family:var(--font-mono);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:12px">Write</div>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:10px;color:var(--text)">Sealed field state</div>
+        <p style="font-size:.85rem;color:var(--muted);line-height:1.7;">X25519 + AES-256-GCM sealed boxes. Ed25519-signed. Only the keyholder decrypts.</p>
+        <div style="margin-top:16px;font-family:var(--font-mono);font-size:.75rem;color:var(--muted2)">POST /akashic/write</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:28px">
+        <div style="font-family:var(--font-mono);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:12px">Read</div>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:10px;color:var(--text)">Consent-gated access</div>
+        <p style="font-size:.85rem;color:var(--muted);line-height:1.7;">Issue an AkashicGrant to share access. Revoke instantly. Audit log is append-only.</p>
+        <div style="margin-top:16px;font-family:var(--font-mono);font-size:.75rem;color:var(--muted2)">POST /akashic/grant</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:28px">
+        <div style="font-family:var(--font-mono);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:12px">Erase</div>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:10px;color:var(--text)">Right to erasure</div>
+        <p style="font-size:.85rem;color:var(--muted);line-height:1.7;">Namespace owners can wipe all fields instantly. HIPAA-grade data lifecycle built in.</p>
+        <div style="margin-top:16px;font-family:var(--font-mono);font-size:.75rem;color:var(--muted2)">DELETE /akashic/erase</div>
+      </div>
+    </div>
+    <div style="background:var(--bg);border:1px solid var(--green-border);border-radius:12px;padding:32px;max-width:720px">
+      <div style="font-family:var(--font-mono);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green);margin-bottom:20px">Quick start &mdash; two agents sharing state</div>
+      <pre style="font-family:var(--font-mono);font-size:.78rem;line-height:1.9;color:#cdd6f4;white-space:pre-wrap;word-break:break-word"><span style="color:#7c7c7c"># Agent A — generate keys and write a field</span>
+keys = requests.post('https://olw.gtll.app/akashic/keygen').json()
+requests.post('https://olw.gtll.app/akashic/keys', json={
+    'address': 'agent-a@myco.olw',
+    'x25519_pub': keys['x25519_pub'], 'ed25519_pub': keys['ed25519_pub']
+})
+requests.post('https://olw.gtll.app/akashic/write', json={
+    'from': 'agent-a@myco.olw', 'namespace': 'shared',
+    'key': 'context', 'sealed_box': encrypt(keys, payload)
+})
+
+<span style="color:#7c7c7c"># Agent B — request a grant, then read</span>
+requests.post('https://olw.gtll.app/akashic/grant', json={
+    'from': 'agent-a@myco.olw', 'to': 'agent-b@myco.olw',
+    'namespace': 'shared', 'keys': ['context']
+})
+data = requests.post('https://olw.gtll.app/akashic/read', json={
+    'requestor': 'agent-b@myco.olw', 'namespace': 'shared', 'key': 'context'
+}).json()  <span style="color:#7c7c7c"># returns ciphertext — agent-b decrypts locally</span></pre>
+    </div>
+    <p style="margin-top:20px;font-size:.82rem;color:var(--muted2)">
+      12 endpoints &middot; X25519 + Ed25519 + AES-256-GCM &middot; HKDF-SHA256 key derivation &middot;
+      <a href="https://github.com/gtllco/olw-protocol/blob/main/spec/akashic-field.md" class="link-green" target="_blank" rel="noopener">Full spec &rarr;</a>
+    </p>
+  </div>
+</section>
+
 <section class="pricing-section" id="pricing">
   <div class="container">
     <div class="section-label">Pricing</div>
@@ -957,6 +1017,7 @@ response = olw.send(
           <li>10 queries / day</li>
           <li>1 agent registration</li>
           <li>.well-known discovery</li>
+          <li>Akashic Layer access</li>
           <li>Full spec access</li>
           <li>Community support</li>
         </ul>
@@ -972,6 +1033,7 @@ response = olw.send(
           <li>Unlimited queries</li>
           <li>100 registrations / month</li>
           <li>Priority index placement</li>
+          <li>Akashic Layer — global propagation</li>
           <li>API key management</li>
           <li>Usage analytics</li>
           <li>Priority support</li>
