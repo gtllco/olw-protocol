@@ -94,7 +94,8 @@ Response:
 
 Multiple writers may race on the same `namespace::field_path`. Resolution:
 - **Simple values**: Last-Writer-Wins by `written_at` timestamp
-- **Collections** (future): OR-Set CRDT
-- **Documents** (future): Merkle-DAG with vector clock
+- **Collections**: OR-Set CRDT (planned)
+- **Documents**: Merkle-DAG with vector clock — implemented in `rsb/rsb.py` (`FieldCRDT`), integration into `akashic.js` in progress
 
-Current implementation: LWW — highest `version` wins (monotonic per write path).
+Current default: LWW — highest `version` wins (monotonic per write path).
+Merkle-DAG upgrade: `FieldCRDT.merge()` guarantees commutativity, associativity, and idempotency across concurrent writers with no coordinator required.

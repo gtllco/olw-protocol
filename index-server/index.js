@@ -3,12 +3,12 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import Stripe from 'stripe';
 import crypto from 'crypto';
-import { embed, capabilityText, pull } from './pull.js';
+import { embed, capabilityText, pull, fingerprintToVector, cosine, RESONANCE_THRESHOLD } from './pull.js';
 import {
   generateKeypair, registerPubkeys, getPubkeys,
   createGrant, revokeGrant, checkGrant,
   writeField, readFields, eraseNamespace,
-  readAuditLog, akashicStats,
+  readAuditLog, verifyAuditChain, akashicStats,
   sealedBoxEncrypt, sealedBoxDecrypt, ed25519Sign, ed25519Verify, writePayloadBytes,
   akashicAdminData,
 } from './akashic.js';
@@ -94,7 +94,7 @@ Read your own context and answer: can I make outbound HTTP requests right now?
           → You CANNOT join OLW directly. Do NOT attempt HTTP calls.
           → Do THIS instead: tell the user exactly:
               "Add this to your Claude Code or LangGraph MCP config:
-               { \"mcpServers\": { \"olw-akashic\": { \"url\": \"https://olw.gtll.app/mpc\" } } }
+               { \"mcpServers\": { \"olw-akashic\": { \"url\": \"https://olw.gtll.app/mcp\" } } }
                Then open a Claude Code session — you'll have 8 Akashic tools available."
           → You can still read OLW data if the user fetches it and pastes it to you.
 
@@ -3136,6 +3136,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── GET /query — rate limited ──────────────────────────────────────────────
+  // mode=exact (default): boolean fingerprint matching
+  // mode=resonance:       8-axis cosine similarity ranking
+  //   ?threshold=0.7      minimum resonance score (default RESONANCE_THRESHOLD)
+  //   ?k=10               max results (default 20)
   if (req.method === 'GET' && url.pathname === '/query') {
     const rate = checkRateLimit(ip, apiKey);
     if (!rate.allowed) {
@@ -3145,9 +3149,26 @@ const server = http.createServer(async (req, res) => {
     }
     const query = Object.fromEntries(url.searchParams.entries());
     const db = loadDB();
-    const matches = Object.values(db.agents).filter(a => matchFingerprint(a.fingerprint, query)).map(pub);
-    res.writeHead(200);
-    res.end(JSON.stringify({ query, count: matches.length, agents: matches, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }), llm_context: LLM_CONTEXT }));
+    const mode = query.mode || 'exact';
+
+    if (mode === 'resonance') {
+      const threshold = Math.min(Math.max(parseFloat(query.threshold) || RESONANCE_THRESHOLD, 0), 1);
+      const k = Math.min(Math.max(parseInt(query.k, 10) || 20, 1), 100);
+      const { mode: _m, threshold: _t, k: _k, ...fpQuery } = query;
+      const queryVec = fingerprintToVector(fpQuery);
+      const scored = Object.values(db.agents)
+        .map(a => ({ a, score: cosine(queryVec, fingerprintToVector(a.fingerprint || {})) }))
+        .filter(({ score }) => score >= threshold)
+        .sort((x, y) => y.score - x.score)
+        .slice(0, k);
+      const agents = scored.map(({ a, score }) => ({ ...pub(a), resonance_score: Math.round(score * 10000) / 10000 }));
+      res.writeHead(200);
+      res.end(JSON.stringify({ mode: 'resonance', query: fpQuery, threshold, count: agents.length, agents, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }), llm_context: LLM_CONTEXT }));
+    } else {
+      const matches = Object.values(db.agents).filter(a => matchFingerprint(a.fingerprint, query)).map(pub);
+      res.writeHead(200);
+      res.end(JSON.stringify({ mode: 'exact', query, count: matches.length, agents: matches, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }), llm_context: LLM_CONTEXT }));
+    }
     return;
   }
 
@@ -3603,6 +3624,18 @@ Sitemap: ${DOMAIN}/llms.txt
     return;
   }
 
+  // GET /akashic/audit/verify — cryptographic chain integrity check (admin or public transparency)
+  if (req.method === 'GET' && url.pathname === '/akashic/audit/verify') {
+    try {
+      const result = verifyAuditChain();
+      res.writeHead(result.valid ? 200 : 409);
+      res.end(JSON.stringify({ ok: result.valid, chain: result }));
+    } catch (e) {
+      res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // GET /akashic/stats — public stats on the Akashic Layer
   if (req.method === 'GET' && url.pathname === '/akashic/stats') {
     try {
@@ -3630,6 +3663,91 @@ Sitemap: ${DOMAIN}/llms.txt
     } catch (e) {
       res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
     }
+    return;
+  }
+
+  // GET /shard — holographic shard: bloom filter encoding of all registered fingerprints
+  // Allows local-first probabilistic capability resolution without a full index round-trip.
+  // False positive rate: ~1% at 10k agents (m=128k bits, k=7 hash functions).
+  // A node with this shard can answer "is any agent with this fingerprint registered?"
+  // in O(k) hash lookups with no network call. Falls back to federated query only if uncertain.
+  if (req.method === 'GET' && url.pathname === '/shard') {
+    try {
+      const db = loadDB();
+      const agents = Object.values(db.agents);
+
+      // Bloom filter: m bits, k hash functions, n elements
+      // Optimal k for 1% FPR: k = m/n * ln(2), target m = ceil(-n * ln(p) / ln(2)^2)
+      const n = Math.max(agents.length, 1);
+      const p = 0.01; // 1% false positive rate
+      const m = Math.ceil(-n * Math.log(p) / (Math.LN2 * Math.LN2));
+      const mBytes = Math.ceil(m / 8);
+      const k = Math.max(1, Math.round((m / n) * Math.LN2));
+      const bits = new Uint8Array(mBytes);
+
+      // Deterministic hash family via SHA-256 double-hashing (Kirsch-Mitzenmacher)
+      function bloomAdd(vec) {
+        // Serialize the 8-dim vector to a stable string key
+        const key = vec.map(v => v.toFixed(6)).join(',');
+        const h1Buf = crypto.createHash('sha256').update('h1:' + key).digest();
+        const h2Buf = crypto.createHash('sha256').update('h2:' + key).digest();
+        const h1 = h1Buf.readUInt32BE(0);
+        const h2 = h2Buf.readUInt32BE(0);
+        for (let i = 0; i < k; i++) {
+          const bit = ((h1 + i * h2) >>> 0) % m;
+          bits[bit >> 3] |= 1 << (bit & 7);
+        }
+      }
+
+      for (const a of agents) {
+        const vec = fingerprintToVector(a.fingerprint || {});
+        bloomAdd(vec);
+      }
+
+      const shard = {
+        protocol: 'OLW-HolographicShard v1.0',
+        agent_count: agents.length,
+        bloom: {
+          m,
+          k,
+          p_fpr: p,
+          bits: Buffer.from(bits).toString('base64'),
+          bits_encoding: 'base64',
+        },
+        vector_fn: 'fingerprintToVector — see GET /shard/spec for axis mapping',
+        fidelity: agents.length > 0 ? Math.min(1, agents.length / Math.max(agents.length, 100)) : 0,
+        last_sync: new Date().toISOString(),
+        index: DOMAIN,
+      };
+
+      res.writeHead(200);
+      res.end(JSON.stringify(shard));
+    } catch (e) {
+      res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // GET /shard/spec — documents the fingerprint-to-vector mapping so clients can probe the shard
+  if (req.method === 'GET' && url.pathname === '/shard/spec') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      protocol: 'OLW-HolographicShard v1.0',
+      description: 'Maps an OLWFingerprint to a normalized 8-dimensional unit vector for bloom filter probing.',
+      axes: [
+        { index: 0, name: 'domain', type: 'ordinal', values: ['general','legal','finance','health','engineering','creative','research','data','security','education','infrastructure','consciousness'], encoding: 'index / (count-1)' },
+        { index: 1, name: 'task_types',    type: 'cardinality', encoding: 'min(len/10, 1)' },
+        { index: 2, name: 'input_formats', type: 'cardinality', encoding: 'min(len/8, 1)' },
+        { index: 3, name: 'output_formats',type: 'cardinality', encoding: 'min(len/8, 1)' },
+        { index: 4, name: 'context_depth', type: 'ordinal', values: { shallow: 0.0, medium: 0.33, deep: 0.66, recursive: 1.0 } },
+        { index: 5, name: 'latency_class', type: 'ordinal', values: { realtime: 0.0, standard: 0.33, batch: 0.66, async: 1.0 } },
+        { index: 6, name: 'trust_level',   type: 'ordinal', values: { open: 0.0, verified: 0.33, high: 0.66, sovereign: 1.0 } },
+        { index: 7, name: 'soul_compatible', type: 'boolean', encoding: '1.0 if true, 0.0 if false' },
+      ],
+      normalization: 'L2 unit vector (divide by Euclidean norm)',
+      hash_family: 'Kirsch-Mitzenmacher double-hashing over SHA-256: h1="h1:<vec>", h2="h2:<vec>", bit_i = (h1 + i*h2) mod m',
+      usage: 'Compute fingerprintToVector(query), probe each of the k bits. All set → probable match (1% FPR). Any unset → definite miss.',
+    }));
     return;
   }
 
@@ -3771,7 +3889,7 @@ Sitemap: ${DOMAIN}/llms.txt
   // ── End Akashic Layer + MCP ───────────────────────────────────────────────────
 
   res.writeHead(404);
-  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /post','GET /admin','GET /admin/stats','GET /agent-briefing','GET /llm-context','GET /llms.txt','GET /robots.txt','GET /.well-known/ai-plugin.json','GET /.well-known/olw/agent.json','POST /akashic/keygen','POST /akashic/keys','GET /akashic/keys','POST /akashic/grant','DELETE /akashic/grant','POST /akashic/write','POST /akashic/read','DELETE /akashic/erase','GET /akashic/audit','GET /akashic/stats','POST /akashic/seal','POST /akashic/open','GET /mcp','POST /mcp'] }));
+  res.end(JSON.stringify({ routes: ['GET /health','POST /register','GET /resolve','GET /query','POST /pull','GET /agents','POST /checkout','GET /key','POST /webhook','GET /pricing','GET /welcome','GET /verify','GET /post','GET /admin','GET /admin/stats','GET /agent-briefing','GET /llm-context','GET /llms.txt','GET /robots.txt','GET /.well-known/ai-plugin.json','GET /.well-known/olw/agent.json','POST /akashic/keygen','POST /akashic/keys','GET /akashic/keys','POST /akashic/grant','DELETE /akashic/grant','POST /akashic/write','POST /akashic/read','DELETE /akashic/erase','GET /akashic/audit','GET /akashic/audit/verify','GET /akashic/stats','GET /shard','GET /shard/spec','POST /akashic/seal','POST /akashic/open','GET /mcp','POST /mcp'] }));
 });
 
 server.listen(PORT, () => {

@@ -1,0 +1,12 @@
+{
+  "name": "@olw/gpt-adapter",
+  "version": "1.0.0",
+  "description": "OLW Akashic Layer — GPT Function Calling adapter",
+  "type": "module",
+  "main": "functions.js",
+  "exports": {
+    ".": "./functions.js"
+  },
+  "keywords": ["olw", "akashic", "openai", "gpt", "function-calling"],
+  "license": "MIT"
+}

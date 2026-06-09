@@ -1,4 +1,4 @@
-// ── pull.js — 555 semantic capability pull ──────────────────────────────────
+// ── pull.js — 555 semantic capability pull + resonance scoring ───────────────
 // Capability finds capability by INTENT. Hard-gate on the 8-axis fingerprint,
 // then rank survivors by semantic similarity of what they actually do.
 // Embeddings are sovereign: local nomic-embed-text on ollama. $0, never leaves box.
@@ -9,6 +9,42 @@
 
 const OLLAMA = process.env.OLLAMA_URL || 'http://localhost:11434';
 const EMBED_MODEL = process.env.OLW_EMBED_MODEL || 'nomic-embed-text';
+
+// ── 8-axis fingerprint → unit vector (mirrors rsb.py) ────────────────────────
+// Deterministic mapping: same fingerprint always produces the same vector.
+// Used by GET /query?mode=resonance for cosine-similarity-ranked discovery.
+
+const KNOWN_DOMAINS = [
+  'general', 'legal', 'finance', 'health', 'engineering',
+  'creative', 'research', 'data', 'security', 'education',
+  'infrastructure', 'consciousness',
+];
+const CONTEXT_DEPTH  = { shallow: 0.0, medium: 0.33, deep: 0.66, recursive: 1.0 };
+const LATENCY_CLASS  = { realtime: 0.0, standard: 0.33, batch: 0.66, async: 1.0 };
+const TRUST_LEVEL    = { open: 0.0, verified: 0.33, high: 0.66, sovereign: 1.0 };
+
+export const RESONANCE_THRESHOLD = 0.7;  // minimum for a match
+export const HARMONIC_LOCK       = 0.9;  // ideal resonance
+
+export function fingerprintToVector(fp = {}) {
+  const domainIdx = KNOWN_DOMAINS.indexOf(fp.domain ?? 'general');
+  const domainVal = (domainIdx < 0 ? Math.floor(KNOWN_DOMAINS.length / 2) : domainIdx)
+    / Math.max(KNOWN_DOMAINS.length - 1, 1);
+
+  const vec = [
+    domainVal,
+    Math.min((fp.task_types?.length ?? 0) / 10, 1),
+    Math.min((fp.input_formats?.length ?? 0) / 8, 1),
+    Math.min((fp.output_formats?.length ?? 0) / 8, 1),
+    CONTEXT_DEPTH[fp.context_depth] ?? 0.5,
+    LATENCY_CLASS[fp.latency_class] ?? 0.5,
+    TRUST_LEVEL[fp.trust_level] ?? 0.5,
+    fp.soul_compatible ? 1.0 : 0.0,
+  ];
+
+  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
+  return norm > 0 ? vec.map(v => v / norm) : vec;
+}
 
 // Embed text → vector via local ollama. Throws on failure (caller decides grace).
 export async function embed(text) {

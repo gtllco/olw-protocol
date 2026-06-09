@@ -30,10 +30,30 @@ function saveGrants(d) { writeFileSync(GRANTS_PATH,  JSON.stringify(d, null, 2))
 function loadPubkeys() { return existsSync(PUBKEYS_PATH) ? JSON.parse(readFileSync(PUBKEYS_PATH, 'utf8')) : { keys: {} }; }
 function savePubkeys(d){ writeFileSync(PUBKEYS_PATH, JSON.stringify(d, null, 2)); }
 
-// ── Audit log (append-only JSONL) ─────────────────────────────────────────────
+// ── Audit log (append-only, cryptographically chained JSONL) ─────────────────
+// Each entry carries prev_hash = SHA-256 of the raw previous line.
+// The chain allows any reader to verify append-only integrity:
+//   verify: for each line[i], SHA-256(rawLine[i-1]) must equal line[i].prev_hash.
+// Tamper of any prior entry breaks all subsequent hashes.
+
+let _auditChainHash = null; // in-process cache of the last written line's hash
+
+function getAuditTip() {
+  if (_auditChainHash !== null) return _auditChainHash;
+  if (!existsSync(AUDIT_PATH)) return null;
+  const data = readFileSync(AUDIT_PATH, 'utf8');
+  const lines = data.trim().split('\n').filter(Boolean);
+  if (!lines.length) return null;
+  _auditChainHash = crypto.createHash('sha256').update(lines[lines.length - 1]).digest('hex');
+  return _auditChainHash;
+}
+
 function audit(entry) {
-  const line = JSON.stringify({ ...entry, ts: new Date().toISOString() });
+  const prev_hash = getAuditTip();
+  const record = { ...entry, ts: new Date().toISOString(), prev_hash };
+  const line = JSON.stringify(record);
   appendFileSync(AUDIT_PATH, line + '\n');
+  _auditChainHash = crypto.createHash('sha256').update(line).digest('hex');
 }
 
 // ── Crypto: Sealed Box ────────────────────────────────────────────────────────
@@ -416,7 +436,7 @@ export function eraseNamespace(namespace, ownerAddress, erasureSigB64) {
   return { erased: true, namespace, fields_erased: erased, grants_revoked: grantsRevoked };
 }
 
-// ── Audit log reader ──────────────────────────────────────────────────────────
+// ── Audit log reader + chain verifier ────────────────────────────────────────
 
 /**
  * Read audit log entries for a specific address (as any party in an operation).
@@ -430,6 +450,33 @@ export function readAuditLog(address, limit = 100) {
     .filter(e => e && (e.address === address || e.grantor === address || e.grantee === address ||
                         e.writer === address || e.requester === address || e.namespace === address || e.owner === address));
   return entries.reverse().slice(0, Math.min(limit, 500));
+}
+
+/**
+ * Verify the cryptographic chain of the audit log.
+ * Walks every entry and confirms each prev_hash matches SHA-256 of the prior raw line.
+ * Returns { valid, entries, broken_at } — broken_at is null if chain is intact.
+ */
+export function verifyAuditChain() {
+  if (!existsSync(AUDIT_PATH)) return { valid: true, entries: 0, broken_at: null };
+  const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
+  let prevHash = null;
+  for (let i = 0; i < lines.length; i++) {
+    let entry;
+    try { entry = JSON.parse(lines[i]); } catch { return { valid: false, entries: i, broken_at: i, reason: 'parse_error' }; }
+    if (i === 0) {
+      if (entry.prev_hash !== null && entry.prev_hash !== undefined) {
+        return { valid: false, entries: i, broken_at: i, reason: 'genesis_has_prev_hash' };
+      }
+    } else {
+      const expected = crypto.createHash('sha256').update(lines[i - 1]).digest('hex');
+      if (entry.prev_hash !== expected) {
+        return { valid: false, entries: lines.length, broken_at: i, reason: 'hash_mismatch', expected, got: entry.prev_hash };
+      }
+    }
+    prevHash = crypto.createHash('sha256').update(lines[i]).digest('hex');
+  }
+  return { valid: true, entries: lines.length, broken_at: null, tip_hash: prevHash };
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -504,15 +551,19 @@ export function akashicAdminData() {
 
   const activeFields = Object.values(fields.fields)
     .filter(f => !f.expires_at || new Date(f.expires_at) > now)
-    .map(f => ({
-      namespace: f.namespace,
-      field_path: f.field_path,
-      version: f.version,
-      writer: f.writer,
-      propagation: f.propagation,
-      written_at: f.written_at,
-      expires_at: f.expires_at,
-    }));
+    .map(f => {
+      const head = f.dag?.[f.head] ?? {};
+      return {
+        namespace:  f.namespace,
+        field_path: f.field_path,
+        version:    head.version ?? null,
+        writer:     head.writer  ?? null,
+        written_at: head.written_at ?? null,
+        propagation: f.propagation,
+        expires_at: f.expires_at,
+        node_hash:  f.head ?? null,
+      };
+    });
 
   const activeGrants = Object.values(grants.grants)
     .filter(g => !g.revoked && new Date(g.expires_at) > now)
