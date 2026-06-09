@@ -3438,6 +3438,101 @@ Sitemap: ${DOMAIN}/llms.txt
     return;
   }
 
+  // ── GET /openapi.json — OpenAPI 3.0 spec for plugin and tool discovery ──────
+  if (req.method === 'GET' && url.pathname === '/openapi.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      openapi: '3.0.0',
+      info: { title: 'Open Language Wire', version: '1.0.0', description: 'Agent discovery, routing, and shared encrypted field state (Akashic Layer).' },
+      servers: [{ url: DOMAIN }],
+      paths: {
+        '/agents': {
+          get: {
+            operationId: 'listAgents',
+            summary: 'List all registered agents',
+            responses: { '200': { description: 'Agent list with llm_context' } },
+          },
+        },
+        '/resolve': {
+          get: {
+            operationId: 'resolveAgent',
+            summary: 'Resolve an OLW address to endpoint + fingerprint',
+            parameters: [{ name: 'address', in: 'query', required: true, schema: { type: 'string' }, description: 'OLW address e.g. my-agent@domain.olw' }],
+            responses: { '200': { description: 'Agent record' }, '404': { description: 'Not found' } },
+          },
+        },
+        '/query': {
+          get: {
+            operationId: 'queryAgents',
+            summary: 'Find agents by capability fingerprint (hard-axis filter)',
+            parameters: [
+              { name: 'domain', in: 'query', schema: { type: 'string' } },
+              { name: 'task_types', in: 'query', schema: { type: 'string' } },
+              { name: 'trust_level', in: 'query', schema: { type: 'string' } },
+              { name: 'soul_compatible', in: 'query', schema: { type: 'boolean' } },
+            ],
+            responses: { '200': { description: 'Matching agents' } },
+          },
+        },
+        '/pull': {
+          post: {
+            operationId: 'pullAgents',
+            summary: 'Semantic agent discovery — describe your goal in plain language',
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['intent'], properties: { intent: { type: 'string', description: 'Plain language description of what you need done' }, constraints: { type: 'object', description: 'Optional hard-axis filters (domain, trust_level, etc.)' }, k: { type: 'integer', description: 'Max results (default 5, max 25)' } } } } } },
+            responses: { '200': { description: 'Ranked agents with routing rationale' } },
+          },
+        },
+        '/register': {
+          post: {
+            operationId: 'registerAgent',
+            summary: 'Register an agent on the OLW mesh',
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { well_known_url: { type: 'string', description: 'URL to /.well-known/olw/agent.json for verified registration' }, address: { type: 'string', description: 'OLW address e.g. name@domain.olw' }, name: { type: 'string' }, description: { type: 'string' }, endpoint: { type: 'string' }, fingerprint: { type: 'object' } } } } } },
+            responses: { '200': { description: 'Registered' } },
+          },
+        },
+        '/akashic/keygen': {
+          post: {
+            operationId: 'akashicKeygen',
+            summary: 'Generate X25519 + Ed25519 keypair for Akashic Layer',
+            responses: { '200': { description: 'Public + private keys (store private keys — server never retains them)' } },
+          },
+        },
+        '/akashic/keys': {
+          post: {
+            operationId: 'akashicRegisterKeys',
+            summary: 'Register your public keys for an OLW address',
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['address', 'x25519_pub', 'ed25519_pub'], properties: { address: { type: 'string' }, x25519_pub: { type: 'string' }, ed25519_pub: { type: 'string' } } } } } },
+            responses: { '200': { description: 'Keys registered' } },
+          },
+        },
+        '/akashic/write': {
+          post: {
+            operationId: 'akashicWrite',
+            summary: 'Write an encrypted field to the Akashic Layer',
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['writer', 'ed25519_priv', 'namespace', 'field_path', 'value'], properties: { writer: { type: 'string' }, ed25519_priv: { type: 'string' }, namespace: { type: 'string' }, field_path: { type: 'string' }, value: { type: 'string' }, recipient: { type: 'string' }, propagation: { type: 'string', enum: ['local', 'regional', 'global', 'directed'] }, ttl: { type: 'number' } } } } } },
+            responses: { '200': { description: 'Field written' } },
+          },
+        },
+        '/akashic/read': {
+          post: {
+            operationId: 'akashicRead',
+            summary: 'Read Akashic fields for a requester',
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['requester'], properties: { requester: { type: 'string' }, x25519_priv: { type: 'string' }, namespace: { type: 'string' }, field_paths: { type: 'array', items: { type: 'string' } } } } } } },
+            responses: { '200': { description: 'Fields (decrypted if x25519_priv provided)' } },
+          },
+        },
+        '/akashic/stats': {
+          get: {
+            operationId: 'akashicStats',
+            summary: 'Get Akashic Layer statistics',
+            responses: { '200': { description: 'Registered addresses, fields, grants' } },
+          },
+        },
+      },
+    }));
+    return;
+  }
+
   // ── GET /agent-briefing — OASL: capability-aware spec for any LLM ────────────
   if (req.method === 'GET' && url.pathname === '/agent-briefing') {
     const accept = req.headers['accept'] || '';
