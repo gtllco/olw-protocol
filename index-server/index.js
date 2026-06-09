@@ -410,6 +410,24 @@ function loadRate() { return existsSync(RATE_PATH) ? JSON.parse(readFileSync(RAT
 function saveRate(r) { writeFileSync(RATE_PATH, JSON.stringify(r, null, 2)); }
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
+const PULL_MONTHLY_LIMIT = 1000;
+function checkPullMeter(apiKey) {
+  if (!apiKey) return { ok: true }; // free tier already capped by checkRateLimit
+  const keys = loadKeys();
+  const rec = keys.keys[apiKey];
+  if (!rec || !rec.active) return { ok: true }; // handled by checkRateLimit
+  const month = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  if (!rec.pull_counts) rec.pull_counts = {};
+  if (!rec.pull_counts[month]) rec.pull_counts[month] = 0;
+  rec.pull_counts[month]++;
+  saveKeys(keys);
+  const used = rec.pull_counts[month];
+  if (used > PULL_MONTHLY_LIMIT) {
+    return { ok: false, used, limit: PULL_MONTHLY_LIMIT, error: `Pro plan: ${PULL_MONTHLY_LIMIT} /pull calls/month included. Contact ${DOMAIN}/pricing for higher limits.` };
+  }
+  return { ok: true, used, remaining: PULL_MONTHLY_LIMIT - used };
+}
+
 function checkRateLimit(ip, apiKey) {
   if (apiKey) {
     const keys = loadKeys();
@@ -3178,6 +3196,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/pull') {
     const rate = checkRateLimit(ip, apiKey);
     if (!rate.allowed) { res.writeHead(429); res.end(JSON.stringify({ error: rate.error, upgrade: `${DOMAIN}/pricing` })); return; }
+    const meter = checkPullMeter(apiKey);
+    if (!meter.ok) { res.writeHead(429); res.end(JSON.stringify({ error: meter.error, used: meter.used, limit: meter.limit, upgrade: `${DOMAIN}/pricing` })); return; }
     const { parsed: body } = await parseBody(req);
     const intent = (body.intent || '').toString().trim();
     if (!intent) { res.writeHead(400); res.end(JSON.stringify({ error: 'intent required — describe what you need done, in plain language' })); return; }
@@ -3186,7 +3206,7 @@ const server = http.createServer(async (req, res) => {
       const db = loadDB();
       const result = await pull(Object.values(db.agents), intent, body.constraints || {}, k);
       res.writeHead(200);
-      res.end(JSON.stringify({ intent, constraints: body.constraints || {}, ...result, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }), llm_context: LLM_CONTEXT }));
+      res.end(JSON.stringify({ intent, constraints: body.constraints || {}, ...result, tier: rate.tier, ...(rate.remaining !== undefined && { free_remaining: rate.remaining }), ...(meter.remaining !== undefined && { pull_remaining: meter.remaining }), llm_context: LLM_CONTEXT }));
     } catch (e) {
       res.writeHead(502); res.end(JSON.stringify({ error: `pull failed: ${e.message}`, hint: 'embedder (ollama nomic-embed-text) may be unreachable' }));
     }
@@ -3659,6 +3679,13 @@ Sitemap: ${DOMAIN}/llms.txt
       const { writer, namespace, field_path, ciphertext, signature, propagation, ttl } = body || {};
       if (!writer || !namespace || !field_path || !ciphertext || !signature) {
         res.writeHead(400); res.end(JSON.stringify({ error: 'writer, namespace, field_path, ciphertext, signature required' })); return;
+      }
+      // Global/directed propagation is Pro-only
+      if (propagation === 'global' || propagation === 'directed') {
+        const rate = checkRateLimit(ip, apiKey);
+        if (rate.tier !== 'pro') {
+          res.writeHead(402); res.end(JSON.stringify({ error: `propagation "${propagation}" requires a Pro key. Upgrade at ${DOMAIN}/pricing` })); return;
+        }
       }
       const result = writeField({ writer, namespace, field_path, ciphertext, signature, propagation, ttl });
       res.writeHead(200); res.end(JSON.stringify({ ok: true, ...result }));
