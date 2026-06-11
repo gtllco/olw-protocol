@@ -77,9 +77,9 @@ test.describe('Welcome page (/welcome)', () => {
 // ── Admin portal ──────────────────────────────────────────────────────────────
 
 test.describe('Admin portal (/admin)', () => {
-  test('loads with vintage document aesthetic', async ({ page }) => {
+  test('loads with login screen and correct title', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page).toHaveTitle(/Field Operations/);
+    await expect(page).toHaveTitle(/Operations/);
     // Login screen visible, dashboard hidden
     await expect(page.locator('#login-screen')).toBeVisible();
     await expect(page.locator('#dashboard')).toBeHidden();
@@ -87,8 +87,8 @@ test.describe('Admin portal (/admin)', () => {
 
   test('login gate shows restricted access copy', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page.locator('text=Restricted Access')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Field Operations' })).toBeVisible();
+    await expect(page.locator('text=restricted access')).toBeVisible();
+    await expect(page.locator('.login-logo')).toBeVisible();
   });
 
   test('shows error on wrong password', async ({ page }) => {
@@ -156,5 +156,99 @@ test.describe('Admin portal (/admin)', () => {
     await page.waitForTimeout(1500);
     const after = await page.locator('#last-updated').textContent();
     expect(after).not.toBe('—');
+  });
+
+  test('partial captures section renders after login', async ({ page }) => {
+    await page.goto('/admin');
+    await page.fill('#secret-input', ADMIN_SECRET);
+    await page.click('#login-btn');
+    await expect(page.locator('#dashboard')).toBeVisible({ timeout: 8000 });
+
+    await expect(page.locator('.section-title').filter({ hasText: 'Lead Capture' })).toBeVisible();
+    // tbody should not be stuck on "Loading…" after data arrives
+    await expect(page.locator('#capture-tbody')).not.toContainText('Loading…', { timeout: 6000 });
+  });
+
+  test('outreach button opens modal', async ({ page }) => {
+    await page.goto('/admin');
+    await page.fill('#secret-input', ADMIN_SECRET);
+    await page.click('#login-btn');
+    await expect(page.locator('#dashboard')).toBeVisible({ timeout: 8000 });
+
+    // Modal hidden by default
+    await expect(page.locator('#outreach-modal')).not.toHaveClass(/open/);
+
+    // Open modal
+    await page.click('#outreach-btn');
+    await expect(page.locator('#outreach-modal')).toHaveClass(/open/);
+    await expect(page.locator('#outreach-email-list')).toBeVisible();
+    await expect(page.locator('#outreach-subject')).toBeVisible();
+    await expect(page.locator('#outreach-body')).toBeVisible();
+  });
+
+  test('outreach modal closes on cancel', async ({ page }) => {
+    await page.goto('/admin');
+    await page.fill('#secret-input', ADMIN_SECRET);
+    await page.click('#login-btn');
+    await expect(page.locator('#dashboard')).toBeVisible({ timeout: 8000 });
+
+    await page.click('#outreach-btn');
+    await expect(page.locator('#outreach-modal')).toHaveClass(/open/);
+
+    await page.click('#outreach-close');
+    await expect(page.locator('#outreach-modal')).not.toHaveClass(/open/);
+  });
+
+  test('outreach modal closes on backdrop click', async ({ page }) => {
+    await page.goto('/admin');
+    await page.fill('#secret-input', ADMIN_SECRET);
+    await page.click('#login-btn');
+    await expect(page.locator('#dashboard')).toBeVisible({ timeout: 8000 });
+
+    await page.click('#outreach-btn');
+    await expect(page.locator('#outreach-modal')).toHaveClass(/open/);
+
+    // Click the overlay backdrop (not the modal card itself)
+    await page.mouse.click(10, 10);
+    await expect(page.locator('#outreach-modal')).not.toHaveClass(/open/);
+  });
+
+  test('send blast validates empty fields', async ({ page }) => {
+    await page.goto('/admin');
+    await page.fill('#secret-input', ADMIN_SECRET);
+    await page.click('#login-btn');
+    await expect(page.locator('#dashboard')).toBeVisible({ timeout: 8000 });
+
+    await page.click('#outreach-btn');
+    await expect(page.locator('#outreach-modal')).toHaveClass(/open/);
+
+    // Click send without filling subject/body
+    await page.click('#send-blast-btn');
+    await expect(page.locator('#outreach-status')).toContainText(/required/i, { timeout: 3000 });
+    await expect(page.locator('#outreach-status')).toHaveClass(/err/);
+  });
+
+  test('/admin/export returns email list', async ({ request }) => {
+    const res = await request.get('/admin/export', {
+      headers: { 'x-admin-secret': ADMIN_SECRET },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('emails');
+    expect(body).toHaveProperty('total');
+    expect(Array.isArray(body.emails)).toBe(true);
+  });
+
+  test('/admin/export rejects unauthenticated requests', async ({ request }) => {
+    const res = await request.get('/admin/export');
+    expect(res.status()).toBe(401);
+  });
+
+  test('/admin/email-blast rejects missing fields', async ({ request }) => {
+    const res = await request.post('/admin/email-blast', {
+      headers: { 'x-admin-secret': ADMIN_SECRET, 'content-type': 'application/json' },
+      data: { subject: 'test' }, // missing body + emails
+    });
+    expect(res.status()).toBe(400);
   });
 });
