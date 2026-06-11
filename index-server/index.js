@@ -2346,11 +2346,69 @@ const ADMIN_HTML = `<!DOCTYPE html>
     .pipeline{flex-wrap:wrap}
     .pipe-stage{min-width:50%;border-right:1px solid var(--border);margin-bottom:-1px}
     .dash-body{padding:20px 16px}
+    .dash-header{padding:0 16px}
+    .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    table{min-width:500px}
   }
   @media(max-width:600px){
     .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .kpi{padding:14px 12px}
+    .kpi-value{font-size:1.5rem}
     .login-card{width:92%}
+    .dash-actions{gap:4px}
+    .dash-btn{padding:4px 10px;font-size:.7rem}
+    .pipe-stage{min-width:100%}
+    .section-title{font-size:.65rem}
   }
+
+  /* ── OUTREACH MODAL ── */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;z-index:200;
+    background:rgba(0,0,0,.72);backdrop-filter:blur(4px);
+    align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;
+  }
+  .modal-overlay.open{display:flex}
+  .modal{
+    background:var(--surface);border:1px solid var(--border2);border-radius:16px;
+    width:100%;max-width:680px;padding:32px;position:relative;
+  }
+  .modal-close{
+    position:absolute;top:16px;right:16px;
+    background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;
+    line-height:1;padding:4px 8px;
+  }
+  .modal-close:hover{color:var(--text)}
+  .modal-title{font-size:1rem;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+  .modal-sub{font-size:.78rem;color:var(--muted);margin-bottom:24px}
+  .modal-label{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;margin-top:16px}
+  .modal-input,.modal-textarea{
+    width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;
+    padding:10px 14px;font-size:.9rem;color:var(--text);outline:none;
+    font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+    transition:border-color .15s;resize:vertical;
+  }
+  .modal-input:focus,.modal-textarea:focus{border-color:var(--green)}
+  .modal-input::placeholder,.modal-textarea::placeholder{color:var(--muted2)}
+  .modal-textarea{min-height:120px}
+  .modal-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+  .modal-btn{
+    padding:9px 18px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;
+    border:none;transition:opacity .15s;
+  }
+  .modal-btn-primary{background:var(--green);color:#000}
+  .modal-btn-primary:hover{opacity:.88}
+  .modal-btn-secondary{background:var(--surface2);border:1px solid var(--border2);color:var(--text)}
+  .modal-btn-secondary:hover{border-color:var(--muted2)}
+  .modal-email-chip{
+    display:inline-block;background:var(--surface2);border:1px solid var(--border2);
+    border-radius:4px;font-size:.72rem;font-family:var(--mono);
+    color:var(--green);padding:2px 8px;margin:2px;cursor:pointer;
+  }
+  .modal-email-chip:hover{border-color:var(--green)}
+  #outreach-email-list{margin-top:8px;max-height:140px;overflow-y:auto;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+  .modal-status{font-size:.78rem;color:var(--muted);margin-top:8px;min-height:1.2em}
+  .modal-status.ok{color:var(--green)}
+  .modal-status.err{color:var(--red)}
 </style>
 </head>
 <body>
@@ -2374,6 +2432,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
       <span class="dash-meta">operations &middot; <span id="last-updated">—</span></span>
     </div>
     <div class="dash-actions">
+      <button class="dash-btn" id="outreach-btn">✉ Outreach</button>
       <button class="dash-btn" id="refresh-btn">↻ Refresh</button>
       <button class="dash-btn danger" id="logout-btn">Sign Out</button>
     </div>
@@ -2614,6 +2673,54 @@ const ADMIN_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- PARTIAL CAPTURES -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">Lead Capture — Partial Submissions</span>
+        <span class="section-count" id="capture-count"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>Email</th><th>Phone</th><th>Source</th><th>Captured</th></tr>
+          </thead>
+          <tbody id="capture-tbody">
+            <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OUTREACH MODAL -->
+<div class="modal-overlay" id="outreach-modal">
+  <div class="modal">
+    <button class="modal-close" id="outreach-close">✕</button>
+    <div class="modal-title">✉ Email Outreach</div>
+    <div class="modal-sub">Compose and send to subscribers + leads</div>
+
+    <div>
+      <label class="modal-label">Recipients (<span id="recipient-count">0</span>)</label>
+      <div id="outreach-email-list"><span style="color:var(--muted);font-size:.8rem">Loading…</span></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="modal-btn modal-btn-secondary" style="font-size:.75rem;padding:6px 12px" id="copy-emails-btn">Copy All Emails</button>
+        <button class="modal-btn modal-btn-secondary" style="font-size:.75rem;padding:6px 12px" id="gmail-btn">Open in Gmail</button>
+      </div>
+    </div>
+
+    <label class="modal-label">Subject</label>
+    <input class="modal-input" id="outreach-subject" placeholder="e.g. OLW Pro — early access update" type="text">
+
+    <label class="modal-label">Body</label>
+    <textarea class="modal-textarea" id="outreach-body" placeholder="Write your message here…"></textarea>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-primary" id="send-blast-btn">Send via gtll-api</button>
+      <button class="modal-btn modal-btn-secondary" id="outreach-close2">Cancel</button>
+    </div>
+    <div class="modal-status" id="outreach-status"></div>
   </div>
 </div>
 
@@ -2941,6 +3048,7 @@ async function loadStats() {
     renderAkashicAddresses(ak.addresses || []);
     renderAkashicFields(ak.fields || []);
     renderAkashicGrants(ak.grants || []);
+    renderCaptures(data.partial_captures || []);
 
     const now = new Date();
     document.getElementById('last-updated').textContent =
@@ -2954,6 +3062,97 @@ async function loadStats() {
     showError('Network error: ' + e.message);
   }
 }
+
+// ── Partial captures table ────────────────────────────────────────────────────
+function renderCaptures(list) {
+  const tbody = document.getElementById('capture-tbody');
+  const countEl = document.getElementById('capture-count');
+  if (!list || list.length === 0) {
+    if (countEl) countEl.textContent = '0 leads';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No partial captures yet.</td></tr>';
+    return;
+  }
+  if (countEl) countEl.textContent = list.length + ' lead' + (list.length !== 1 ? 's' : '');
+  tbody.innerHTML = list.map(c => \`<tr>
+    <td class="cell-name">\${esc(c.email || '—')}</td>
+    <td class="cell-dim">\${esc(c.phone || '—')}</td>
+    <td><span class="badge badge-muted">\${esc(c.source || 'form')}</span></td>
+    <td class="cell-dim">\${fmtDate(c.created_at)}</td>
+  </tr>\`).join('');
+}
+
+// ── Outreach modal ────────────────────────────────────────────────────────────
+let outreachEmails = [];
+
+function openOutreach() {
+  document.getElementById('outreach-modal').classList.add('open');
+  loadOutreachEmails();
+}
+function closeOutreach() {
+  document.getElementById('outreach-modal').classList.remove('open');
+}
+
+async function loadOutreachEmails() {
+  const secret = getSecret();
+  const list = document.getElementById('outreach-email-list');
+  try {
+    const res = await fetch('/admin/export', { headers: { 'x-admin-secret': secret } });
+    const data = await res.json();
+    outreachEmails = data.emails || [];
+    document.getElementById('recipient-count').textContent = outreachEmails.length;
+    list.innerHTML = outreachEmails.length
+      ? outreachEmails.map(e => \`<span class="modal-email-chip" title="\${esc(e.email)}">\${esc(e.email)}<span style="color:var(--muted);margin-left:4px">\${e.source === 'subscriber' ? '★' : '·'}</span></span>\`).join('')
+      : '<span style="color:var(--muted);font-size:.8rem">No emails yet.</span>';
+  } catch (e) {
+    list.innerHTML = '<span style="color:var(--red);font-size:.8rem">Failed to load.</span>';
+  }
+}
+
+async function sendBlast() {
+  const secret = getSecret();
+  const subject = document.getElementById('outreach-subject').value.trim();
+  const body = document.getElementById('outreach-body').value.trim();
+  const status = document.getElementById('outreach-status');
+  if (!subject || !body) { status.textContent = 'Subject and body required.'; status.className = 'modal-status err'; return; }
+  if (!outreachEmails.length) { status.textContent = 'No recipients.'; status.className = 'modal-status err'; return; }
+  status.textContent = 'Sending…'; status.className = 'modal-status';
+  try {
+    const res = await fetch('/admin/email-blast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+      body: JSON.stringify({ subject, body, emails: outreachEmails.map(e => e.email) }),
+    });
+    const data = await res.json();
+    if (res.ok) { status.textContent = \`✓ Sent to \${data.sent} recipients.\`; status.className = 'modal-status ok'; }
+    else { status.textContent = data.error || 'Send failed.'; status.className = 'modal-status err'; }
+  } catch (e) {
+    status.textContent = 'Network error: ' + e.message; status.className = 'modal-status err';
+  }
+}
+
+function copyAllEmails() {
+  const emails = outreachEmails.map(e => e.email).join(', ');
+  navigator.clipboard.writeText(emails).then(() => {
+    const btn = document.getElementById('copy-emails-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = 'Copy All Emails'; }, 2000);
+  });
+}
+
+function openInGmail() {
+  const bcc = outreachEmails.map(e => encodeURIComponent(e.email)).join(',');
+  const subject = encodeURIComponent(document.getElementById('outreach-subject').value || 'OLW Update');
+  const body = encodeURIComponent(document.getElementById('outreach-body').value || '');
+  window.open(\`https://mail.google.com/mail/?view=cm&bcc=\${bcc}&su=\${subject}&body=\${body}\`, '_blank');
+}
+
+document.getElementById('outreach-btn').addEventListener('click', openOutreach);
+document.getElementById('outreach-close').addEventListener('click', closeOutreach);
+document.getElementById('outreach-close2').addEventListener('click', closeOutreach);
+document.getElementById('copy-emails-btn').addEventListener('click', copyAllEmails);
+document.getElementById('gmail-btn').addEventListener('click', openInGmail);
+document.getElementById('send-blast-btn').addEventListener('click', sendBlast);
+document.getElementById('outreach-modal').addEventListener('click', e => { if (e.target === document.getElementById('outreach-modal')) closeOutreach(); });
 
 // Auto-fetch if secret already in sessionStorage
 const saved = getSecret();
@@ -3391,6 +3590,15 @@ const server = http.createServer(async (req, res) => {
     ipEntries.sort((a, b) => b.count - a.count);
     const topIPs = ipEntries.slice(0, 10);
 
+    // Partial captures from Supabase
+    let partialCaptures = [];
+    if (sbEnabled()) {
+      try {
+        const pcRes = await fetch(`${SUPABASE_URL}/rest/v1/partial_captures?order=created_at.desc&limit=50`, { headers: sbHeaders() });
+        if (pcRes.ok) partialCaptures = await pcRes.json();
+      } catch (_) { /* non-fatal */ }
+    }
+
     res.writeHead(200);
     res.end(JSON.stringify({
       agents: { total: agentList.length, list: agentList },
@@ -3399,7 +3607,72 @@ const server = http.createServer(async (req, res) => {
       rate_limits: { top_ips: topIPs },
       server: { uptime_seconds: Math.floor(process.uptime()), domain: DOMAIN },
       akashic: akashicAdminData(),
+      partial_captures: partialCaptures,
     }));
+    return;
+  }
+
+  // ── GET /admin/export — unmasked subscriber + partial capture list ──────────
+  if (req.method === 'GET' && url.pathname === '/admin/export') {
+    if (!checkAdminAuth(req, url)) {
+      res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return;
+    }
+    const keys = loadKeys();
+    const subEmails = Object.values(keys.keys)
+      .filter(k => k.active && k.email)
+      .map(k => ({ email: k.email, source: 'subscriber', tier: k.tier || 'pro' }));
+
+    let captureEmails = [];
+    if (sbEnabled()) {
+      try {
+        const pcRes = await fetch(`${SUPABASE_URL}/rest/v1/partial_captures?select=email&order=created_at.desc`, { headers: sbHeaders() });
+        if (pcRes.ok) {
+          const rows = await pcRes.json();
+          captureEmails = rows.filter(r => r.email).map(r => ({ email: r.email, source: 'lead' }));
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+
+    // Deduplicate by email
+    const seen = new Set();
+    const emails = [...subEmails, ...captureEmails].filter(e => {
+      if (seen.has(e.email)) return false;
+      seen.add(e.email); return true;
+    });
+
+    res.writeHead(200);
+    res.end(JSON.stringify({ emails, total: emails.length }));
+    return;
+  }
+
+  // ── POST /admin/email-blast — send via gtll-api Resend integration ──────────
+  if (req.method === 'POST' && url.pathname === '/admin/email-blast') {
+    if (!checkAdminAuth(req, url)) {
+      res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return;
+    }
+    const { parsed: body } = await parseBody(req);
+    const { subject, body: msgBody, emails } = body;
+    if (!subject || !msgBody || !Array.isArray(emails) || !emails.length) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'subject, body, emails[] required' })); return;
+    }
+
+    // Proxy to gtll-api which has Resend configured
+    let sent = 0;
+    const errors = [];
+    for (const email of emails.slice(0, 100)) { // cap at 100 per blast
+      try {
+        await fetch('http://localhost:3100/services/emailBlast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-neural-secret': 'ILOVEYOUSAMUEL' },
+          body: JSON.stringify({ to: email, subject, html: `<p>${msgBody.replace(/\n/g, '<br>')}</p>`, from: 'OLW <noreply@gtll.app>' }),
+        });
+        sent++;
+      } catch (e) {
+        errors.push({ email, error: e.message });
+      }
+    }
+    res.writeHead(200);
+    res.end(JSON.stringify({ ok: true, sent, errors }));
     return;
   }
 
